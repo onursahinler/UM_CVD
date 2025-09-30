@@ -2,8 +2,12 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useAuth } from "@/contexts/AuthContext";
+import { useRouter } from "next/navigation";
 
 export default function LoginPage() {
+  const { login } = useAuth();
+  const router = useRouter();
   const [formData, setFormData] = useState({
     email: "",
     password: "",
@@ -41,22 +45,22 @@ export default function LoginPage() {
     
     setIsLoading(true);
     
-    // Check credentials
-    if (formData.email === "admin@admin.com" && formData.password === "123123") {
-      // Simulate successful login
-      setTimeout(() => {
-        setIsLoading(false);
-        // Redirect to main assessment page
-        window.location.href = "/";
-      }, 1000);
-    } else {
-      // Show error for invalid credentials
-      setTimeout(() => {
-        setIsLoading(false);
+    try {
+      const success = await login(formData.email, formData.password);
+      if (success) {
+        // Redirect to dashboard after successful login
+        router.push("/dashboard");
+      } else {
         setErrors({ 
           password: "Wrong password. Please try again." 
         });
-      }, 1000);
+      }
+    } catch (error) {
+      setErrors({ 
+        password: "An error occurred. Please try again." 
+      });
+    } finally {
+      setIsLoading(false);
     }
   };
 
