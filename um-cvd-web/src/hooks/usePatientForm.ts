@@ -1,6 +1,7 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { PatientForm, FormErrors, UploadedData } from '@/types';
 import { validateStep, generatePatientId } from '@/utils/validation';
+import { useFormContext } from '@/contexts/FormContext';
 
 const initialFormState: PatientForm = {
   // Patient info
@@ -35,9 +36,28 @@ const initialFormState: PatientForm = {
 };
 
 export const usePatientForm = () => {
+  const { loadForm, saveForm, clearSavedForm } = useFormContext();
   const [form, setForm] = useState<PatientForm>(initialFormState);
   const [errors, setErrors] = useState<FormErrors>({});
   const [isIdGenerated, setIsIdGenerated] = useState(false);
+
+  // Load saved form data on mount
+  useEffect(() => {
+    const savedForm = loadForm();
+    if (savedForm) {
+      setForm(savedForm);
+      // Check if patient ID was generated
+      setIsIdGenerated(!!savedForm.patientId);
+    }
+  }, [loadForm]);
+
+  // Auto-save form data when it changes
+  useEffect(() => {
+    const hasData = Object.values(form).some(value => value && value.toString().trim() !== '');
+    if (hasData) {
+      saveForm(form);
+    }
+  }, [form, saveForm]);
 
   const clearError = useCallback((key: keyof PatientForm, hasValue: boolean) => {
     setErrors((prev) => {
@@ -115,7 +135,8 @@ export const usePatientForm = () => {
     setForm(initialFormState);
     setErrors({});
     setIsIdGenerated(false);
-  }, []);
+    clearSavedForm();
+  }, [clearSavedForm]);
 
   return {
     form,

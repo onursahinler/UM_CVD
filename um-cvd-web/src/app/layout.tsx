@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono, Bebas_Neue } from "next/font/google";
 import { Navigation } from "@/components/layout/Navigation";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { FormProvider } from "@/contexts/FormContext";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -37,8 +38,10 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} ${bebas.variable} antialiased bg-background text-foreground`}
       >
         <AuthProvider>
-          <Navigation />
-          {children}
+          <FormProvider>
+            <Navigation />
+            {children}
+          </FormProvider>
         </AuthProvider>
       </body>
     </html>
