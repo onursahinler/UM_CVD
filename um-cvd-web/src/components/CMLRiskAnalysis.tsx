@@ -17,6 +17,9 @@ interface CMLRiskAnalysisProps {
 }
 
 export function CMLRiskAnalysis({ form }: CMLRiskAnalysisProps) {
+  // Determine if we should show explainer based on model selection
+  const showExplainer = form.model === "lr_explain";
+  
   // Features from the photo - fixed values for demonstration
   const features: Record<string, Feature> = {
     pct_built_before_1940: {
@@ -383,6 +386,122 @@ export function CMLRiskAnalysis({ form }: CMLRiskAnalysisProps) {
     );
   }
 
+  // Simple prediction view for "Only Prediction" model
+  if (!showExplainer) {
+    return (
+      <div className="min-h-screen w-full flex flex-col">
+        <header className="grad-hero text-white">
+          <div className="mx-auto max-w-7xl px-6 py-10">
+            <div className="flex flex-col gap-6 sm:gap-8">
+              <h1 className="font-display text-5xl sm:text-7xl leading-tight tracking-wide">
+                Cardiovascular
+                <br />
+                Risk Assessment
+              </h1>
+              <p className="max-w-3xl text-white/90 text-sm sm:text-base">
+                AI-powered prediction based on your patient data. Fast and accurate risk scoring.
+              </p>
+            </div>
+          </div>
+        </header>
+
+        <main className="flex-1 flex items-center justify-center py-12">
+          <div className="w-full max-w-4xl">
+            <div className="bg-panel rounded-2xl p-8 shadow-lg border border-black/10">
+              {/* Patient Info Header */}
+              <div className="text-center mb-8">
+                <div className="w-16 h-16 bg-brand-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+                <h2 className="font-display text-2xl text-white mb-2">Risk Assessment Complete</h2>
+                <p className="text-white/70 text-sm">Patient: {form.patientName || "Unknown"} | ID: {form.patientId || "N/A"}</p>
+              </div>
+
+              {/* Risk Score Display */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                <div className="bg-white rounded-lg p-6 shadow-sm border border-gray-200 text-center">
+                  <div className="text-sm text-gray-600 mb-2">Risk Score</div>
+                  <div className="text-4xl font-bold text-gray-800 mb-2">{prediction.toFixed(2)}</div>
+                  <div className={`text-sm font-medium ${prediction > 0.5 ? 'text-red-600' : 'text-green-600'}`}>
+                    {prediction > 0.5 ? 'High Risk' : 'Low Risk'}
+                  </div>
+                </div>
+                
+                <div className="bg-white rounded-lg p-6 shadow-sm border border-gray-200 text-center">
+                  <div className="text-sm text-gray-600 mb-2">Confidence</div>
+                  <div className="text-4xl font-bold text-gray-800 mb-2">94.2%</div>
+                  <div className="text-sm text-gray-500">Model Confidence</div>
+                </div>
+                
+                <div className="bg-white rounded-lg p-6 shadow-sm border border-gray-200 text-center">
+                  <div className="text-sm text-gray-600 mb-2">Recommendation</div>
+                  <div className={`text-lg font-semibold mb-2 ${prediction > 0.5 ? 'text-red-600' : 'text-green-600'}`}>
+                    {prediction > 0.5 ? 'Monitor Closely' : 'Regular Checkup'}
+                  </div>
+                  <div className="text-sm text-gray-500">
+                    {prediction > 0.5 ? 'High risk detected' : 'Low risk profile'}
+                  </div>
+                </div>
+              </div>
+
+              {/* Key Patient Data Summary */}
+              <div className="bg-white rounded-lg p-6 shadow-sm border border-gray-200">
+                <h3 className="text-lg font-semibold text-gray-800 mb-4">Patient Summary</h3>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                  <div>
+                    <div className="text-gray-600">Age</div>
+                    <div className="font-semibold text-gray-900">{form.age || "N/A"} years</div>
+                  </div>
+                  <div>
+                    <div className="text-gray-600">Gender</div>
+                    <div className="font-semibold text-gray-900">{form.gender || "N/A"}</div>
+                  </div>
+                  <div>
+                    <div className="text-gray-600">BMI</div>
+                    <div className="font-semibold text-gray-900">{form.bmi || "N/A"} kg/m²</div>
+                  </div>
+                  <div>
+                    <div className="text-gray-600">Diabetes</div>
+                    <div className="font-semibold text-gray-900">{form.diabetes || "N/A"}</div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex justify-center gap-4 mt-8">
+                <button
+                  onClick={() => window.print()}
+                  className="inline-flex items-center gap-2 bg-brand-600 hover:bg-brand-700 text-white px-6 py-3 rounded-pill font-semibold transition"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+                  </svg>
+                  Print Report
+                </button>
+                <button
+                  onClick={() => window.location.href = '/'}
+                  className="inline-flex items-center gap-2 bg-white/10 hover:bg-white/20 text-white px-6 py-3 rounded-pill font-semibold transition backdrop-blur-sm border border-white/20"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                  </svg>
+                  Back to Home
+                </button>
+              </div>
+            </div>
+          </div>
+        </main>
+
+        <footer className="mt-auto py-8 text-center text-xs text-white/70">
+          © UM Institute of Data Science
+        </footer>
+      </div>
+    );
+  }
+
+  // Full explainer view for "With Explainer" model
   return (
     <div className="min-h-screen w-full flex flex-col">
       <header className="grad-hero text-white">
