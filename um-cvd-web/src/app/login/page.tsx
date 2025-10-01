@@ -139,7 +139,7 @@ export default function LoginPage() {
 
             <form onSubmit={handleSubmit} className="space-y-6">
               <div>
-                <label className="block text-sm font-semibold text-black mb-2">
+                <label className="block text-sm font-semibold text-white mb-2">
                   Email Address
                 </label>
                 <input
@@ -150,7 +150,7 @@ export default function LoginPage() {
                     errors.email 
                       ? "border-red-500 focus:ring-red-500" 
                       : "border-black/10 focus:ring-brand-400"
-                  } bg-white text-black placeholder-gray-500`}
+                  } bg-white text-black placeholder-white`}
                   placeholder="doctor@hospital.com"
                 />
                 {errors.email && (
@@ -159,7 +159,7 @@ export default function LoginPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-black mb-2">
+                <label className="block text-sm font-semibold text-white mb-2">
                   Password
                 </label>
                 <input
@@ -170,7 +170,7 @@ export default function LoginPage() {
                     errors.password 
                       ? "border-red-500 focus:ring-red-500" 
                       : "border-black/10 focus:ring-brand-400"
-                  } bg-white text-black placeholder-gray-500`}
+                  } bg-white text-black placeholder-white`}
                   placeholder="Enter your password"
                 />
                 {errors.password && (
@@ -184,7 +184,7 @@ export default function LoginPage() {
                     type="checkbox"
                     className="rounded border-gray-300 text-brand-600 focus:ring-brand-500"
                   />
-                  <span className="ml-2 text-sm text-gray-600">Remember me</span>
+                  <span className="ml-2 text-sm text-white">Remember me</span>
                 </label>
                 <button 
                   type="button"
@@ -216,7 +216,7 @@ export default function LoginPage() {
             </form>
 
             <div className="mt-8 text-center">
-              <p className="text-sm text-gray-600">
+              <p className="text-sm text-white">
                 Don't have an account?{" "}
                 <a href="#" className="text-brand-600 hover:text-brand-700 font-semibold">
                   Contact Administrator
@@ -226,7 +226,7 @@ export default function LoginPage() {
           </div>
 
           <div className="mt-6 text-center">
-            <p className="text-xs text-gray-500">
+            <p className="text-xs text-white">
               Secure login powered by enterprise-grade authentication
             </p>
           </div>
