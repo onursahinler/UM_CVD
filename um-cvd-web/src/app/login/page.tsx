@@ -150,8 +150,8 @@ export default function LoginPage() {
                     errors.email 
                       ? "border-red-500 focus:ring-red-500" 
                       : "border-black/10 focus:ring-brand-400"
-                  } bg-white text-black placeholder-white`}
-                  placeholder="doctor@hospital.com"
+                  } bg-white text-black placeholder-gray-400`}
+                  placeholder="admin@admin.com"
                 />
                 {errors.email && (
                   <p className="mt-1 text-xs text-red-600">{errors.email}</p>
@@ -170,7 +170,7 @@ export default function LoginPage() {
                     errors.password 
                       ? "border-red-500 focus:ring-red-500" 
                       : "border-black/10 focus:ring-brand-400"
-                  } bg-white text-black placeholder-white`}
+                  } bg-white text-black placeholder-gray-400`}
                   placeholder="Enter your password"
                 />
                 {errors.password && (
