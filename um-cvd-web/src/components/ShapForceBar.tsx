@@ -266,36 +266,58 @@ const ShapForceBar: React.FC<ShapForceBarProps> = ({ className }) => {
     // axis bounds and ticks
     const [xmin, xmax] = niceBounds(Math.min(leftCursor, BASE_VALUE), Math.max(rightCursor, BASE_VALUE), 500);
 
-    // Under-bar labels with trapezoidal stems
+    // Under-bar labels with colored connecting lines
     segmentsForLabels.sort((a, b) => a.cx - b.cx);
-    const labelY = y0 - 0.03;
+    const labelY = y0 - 0.08; // Move labels further down
 
     segmentsForLabels.forEach((seg) => {
-      // Trapezoidal stem connecting label to bar segment
-      const stemWidth = 0.008;
-      const stemBottomWidth = 0.015;
+      // Colored connecting line from segment to label
+      const lineColor = seg.side === "neg" ? RED : BLUE;
       
-      // Create trapezoidal path
-      const trapezoidPath = `M${seg.cx - stemWidth/2},${y0 - 0.005} L${seg.cx + stemWidth/2},${y0 - 0.005} L${seg.cx + stemBottomWidth/2},${labelY + 0.008} L${seg.cx - stemBottomWidth/2},${labelY + 0.008} Z`;
+      // Vertical line from segment to label
+      shapes.push({
+        type: "line",
+        x0: seg.cx,
+        x1: seg.cx,
+        y0: y0 - 0.001,
+        y1: labelY + 0.00001,
+        line: { color: lineColor, width: 3 }
+      });
+      
+      // Small horizontal line at the bottom
+      shapes.push({
+        type: "line",
+        x0: seg.cx - 0.01,
+        x1: seg.cx + 0.01,
+        y0: labelY + 0.25,
+        y1: labelY + 0.1,
+        line: { color: lineColor, width: 2 }
+      });
+      
+      // Label background (colored rectangle)
+      const labelText = `${seg.label} = ${fmtValue(seg.val)}`;
+      const textWidth = labelText.length * 0.008; // Approximate text width
       
       shapes.push({
-        type: "path",
-        path: trapezoidPath,
-        line: { width: 0 },
-        fillcolor: seg.side === "neg" ? RED : BLUE,
-        opacity: 0.7
+        type: "rect",
+        x0: seg.cx - textWidth/2 - 0.005,
+        x1: seg.cx + textWidth/2 + 0.005,
+        y0: labelY - 0.005,
+        y1: labelY + 0.025,
+        line: { width: 1, color: lineColor },
+        fillcolor: seg.side === "neg" ? "rgba(255, 59, 106, 0.1)" : "rgba(47, 128, 255, 0.1)",
+        opacity: 0.8
       });
       
       // Label text
-      const labelTxt = `${seg.label} = ${fmtValue(seg.val)}`;
       annotations.push({
         x: seg.cx,
-        y: labelY,
-        text: labelTxt,
+        y: labelY - 0.08,
+        text: labelText,
         showarrow: false,
-        font: { size: 11, color: seg.side === "neg" ? RED : BLUE },
+        font: { size: 11, color: lineColor, family: "Arial, sans-serif" },
         xanchor: "center",
-        yanchor: "top",
+        yanchor: "middle",
       });
       
       // Show impact (Δ) on the bar itself
@@ -316,8 +338,8 @@ const ShapForceBar: React.FC<ShapForceBarProps> = ({ className }) => {
     return {
       data: [],
       layout: {
-        height: 280,
-        margin: { l: 40, r: 40, t: 20, b: 50 },
+        height: 320,
+        margin: { l: 40, r: 40, t: 20, b: 80 },
         shapes,
         annotations,
         plot_bgcolor: "rgba(0,0,0,0)",
@@ -584,7 +606,7 @@ const ShapForceBar: React.FC<ShapForceBarProps> = ({ className }) => {
             data={plotData.data}
             layout={plotData.layout}
             config={plotData.config}
-            style={{ width: '100%', height: '280px' }}
+            style={{ width: '100%', height: '320px' }}
           />
         </div>
 
