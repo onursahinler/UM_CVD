@@ -81,6 +81,7 @@ const ShapForceBar: React.FC<ShapForceBarProps> = ({ className }) => {
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   const [showColumnVisibilityMenu, setShowColumnVisibilityMenu] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
+  const [isTableFullscreen, setIsTableFullscreen] = useState(false);
 
   // Helper functions
   const fmt = (x: number) => `${x.toLocaleString()}.${(x % 1).toFixed(2).split('.')[1]}`;
@@ -500,6 +501,20 @@ const ShapForceBar: React.FC<ShapForceBarProps> = ({ className }) => {
     };
   }, [showColumnMenu, showColumnVisibilityMenu]);
 
+  // Handle fullscreen table
+  useEffect(() => {
+    if (isTableFullscreen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+    
+    // Cleanup on unmount
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [isTableFullscreen]);
+
   const plotData = buildForceFigure();
 
   return (
@@ -740,6 +755,23 @@ const ShapForceBar: React.FC<ShapForceBarProps> = ({ className }) => {
                 </svg>
                 Download CSV
               </button>
+              
+              <button
+                onClick={() => setIsTableFullscreen(!isTableFullscreen)}
+                className="px-3 py-1 text-sm bg-gray-600 text-white rounded-md hover:bg-gray-700 transition-colors flex items-center gap-1"
+                title={isTableFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
+              >
+                {isTableFullscreen ? (
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 9V4.5M9 9H4.5M9 9L3.5 3.5M15 9v4.5M15 9h4.5M15 9l5.5-5.5M9 15v4.5M9 15H4.5M9 15l-5.5 5.5M15 15v-4.5M15 15h4.5M15 15l5.5 5.5" />
+                  </svg>
+                ) : (
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+                  </svg>
+                )}
+                {isTableFullscreen ? "Exit Fullscreen" : "Fullscreen"}
+              </button>
             </div>
           </div>
           
@@ -882,6 +914,236 @@ const ShapForceBar: React.FC<ShapForceBarProps> = ({ className }) => {
           </div>
         </div>
       </div>
+
+      {/* Fullscreen Table Modal */}
+      {isTableFullscreen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg w-full h-full max-w-7xl max-h-[90vh] flex flex-col">
+            {/* Modal Header */}
+            <div className="bg-gray-50 px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+              <h3 className="text-xl font-semibold text-gray-800">Feature Contributions - Fullscreen</h3>
+              <button
+                onClick={() => setIsTableFullscreen(false)}
+                className="p-2 hover:bg-gray-200 rounded-md transition-colors"
+                title="Close fullscreen"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            
+            {/* Modal Content - Same table as above */}
+            <div className="flex-1 overflow-auto">
+              <div className="p-6">
+                {/* Search and Controls */}
+                <div className="mb-4 flex items-center gap-4">
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      placeholder="Search features..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="px-3 py-2 text-sm text-black border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                    {searchTerm && (
+                      <button
+                        onClick={() => setSearchTerm("")}
+                        className="text-gray-500 hover:text-gray-700 p-1"
+                        title="Clear search"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    )}
+                  </div>
+                  
+                  <div className="flex items-center gap-2">
+                    <div className="relative">
+                      <button
+                        onClick={() => setShowColumnVisibilityMenu(!showColumnVisibilityMenu)}
+                        className="px-3 py-2 text-sm bg-gray-600 text-white rounded-md hover:bg-gray-700 transition-colors flex items-center gap-1"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                        </svg>
+                        Columns
+                      </button>
+                      
+                      {/* Column Visibility Menu */}
+                      {showColumnVisibilityMenu && (
+                        <div className="column-visibility-menu absolute top-full left-0 mt-1 w-48 bg-gray-800 border border-gray-600 rounded-md shadow-lg z-50">
+                          <div className="py-1">
+                            <button
+                              onClick={() => {
+                                toggleAllColumns();
+                                setShowColumnVisibilityMenu(false);
+                              }}
+                              className="w-full text-left px-4 py-2 text-sm text-white hover:bg-gray-700 flex items-center gap-2"
+                            >
+                              <div className={`w-4 h-4 border border-gray-400 flex items-center justify-center ${
+                                hiddenColumns.size === 0 ? 'bg-red-500' : 'bg-transparent'
+                              }`}>
+                                {hiddenColumns.size === 0 ? (
+                                  <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                  </svg>
+                                ) : (
+                                  <div className="w-3 h-0.5 bg-white"></div>
+                                )}
+                              </div>
+                              Select all
+                            </button>
+                            
+                            {columns.map((column) => (
+                              <button
+                                key={column.key}
+                                onClick={() => {
+                                  toggleColumnVisibility(column.key);
+                                }}
+                                className="w-full text-left px-4 py-2 text-sm text-white hover:bg-gray-700 flex items-center gap-2"
+                              >
+                                <div className={`w-4 h-4 border border-gray-400 flex items-center justify-center ${
+                                  !hiddenColumns.has(column.key) ? 'bg-red-500' : 'bg-transparent'
+                                }`}>
+                                  {!hiddenColumns.has(column.key) ? (
+                                    <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                    </svg>
+                                  ) : null}
+                                </div>
+                                {column.label}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                    
+                    <button
+                      onClick={() => {
+                        const headers = ["Feature", "Value", "Baseline", "Weight", "Contribution"];
+                        const rows = sortedData.map(([key, contrib]) => {
+                          const feature = features[key as keyof typeof features];
+                          return [
+                            feature.label,
+                            values[key].toFixed(3),
+                            feature.baseline.toFixed(1),
+                            feature.weight.toFixed(0),
+                            contrib.toFixed(1)
+                          ];
+                        });
+                        
+                        const csvContent = [headers, ...rows]
+                          .map(row => row.join(","))
+                          .join("\n");
+                        
+                        const blob = new Blob([csvContent], { type: "text/csv" });
+                        const url = window.URL.createObjectURL(blob);
+                        const link = document.createElement("a");
+                        link.href = url;
+                        link.download = `cml_risk_analysis${searchTerm ? `_${searchTerm}` : ''}.csv`;
+                        link.click();
+                        window.URL.revokeObjectURL(url);
+                      }}
+                      className="px-3 py-2 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors flex items-center gap-1"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                      </svg>
+                      Download CSV
+                    </button>
+                  </div>
+                </div>
+                
+                {/* Fullscreen Table */}
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm border-collapse">
+                    <thead className="bg-gray-100">
+                      <tr>
+                        {orderedColumns.map((column) => {
+                          if (hiddenColumns.has(column.key)) return null;
+                          
+                          return (
+                            <th key={column.key} className="text-left py-4 px-4 font-bold text-gray-800 border-r border-gray-300 relative group">
+                              <div className="flex items-center justify-between">
+                                <span 
+                                  className="cursor-pointer hover:text-blue-600"
+                                  onClick={() => handleSort(column.key)}
+                                >
+                                  {column.label}
+                                  {sortColumn === column.key && (
+                                    <span className="ml-1">
+                                      {sortDirection === 'asc' ? '↑' : '↓'}
+                                    </span>
+                                  )}
+                                </span>
+                                <button
+                                  onClick={() => setShowColumnMenu(showColumnMenu === column.key ? null : column.key)}
+                                  className="opacity-0 group-hover:opacity-100 p-1 hover:bg-gray-200 rounded"
+                                >
+                                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                                    <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" />
+                                  </svg>
+                                </button>
+                              </div>
+                            </th>
+                          );
+                        })}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {sortedData.map(([key, contrib]) => {
+                        const feature = features[key as keyof typeof features];
+                        return (
+                          <tr key={key} className="border-b border-gray-200 hover:bg-gray-50">
+                            {orderedColumns.map((column) => {
+                              if (hiddenColumns.has(column.key)) return null;
+                              
+                              let cellContent;
+                              switch (column.key) {
+                                case 'feature':
+                                  cellContent = feature.label;
+                                  break;
+                                case 'value':
+                                  cellContent = values[key].toFixed(3);
+                                  break;
+                                case 'baseline':
+                                  cellContent = feature.baseline.toFixed(1);
+                                  break;
+                                case 'weight':
+                                  cellContent = feature.weight.toFixed(0);
+                                  break;
+                                case 'contribution':
+                                  cellContent = contrib.toFixed(1);
+                                  break;
+                                default:
+                                  cellContent = '';
+                              }
+                              
+                              return (
+                                <td key={column.key} className={`py-4 px-4 border-r border-gray-200 ${
+                                  column.key === 'feature' || column.key === 'contribution' 
+                                    ? 'font-medium text-gray-800' 
+                                    : 'text-gray-600'
+                                }`}>
+                                  {cellContent}
+                                </td>
+                              );
+                            })}
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
