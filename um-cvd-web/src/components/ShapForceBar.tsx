@@ -505,8 +505,8 @@ const ShapForceBar: React.FC<ShapForceBarProps> = ({ className }) => {
   return (
     <div className="flex w-full">
       {/* Left Sidebar - Feature Controls */}
-      <div className="w-80 bg-gray-800 p-6 border-r border-gray-600 min-h-screen">
-        <div className="space-y-6">
+      <div className="w-80 bg-gray-800 p-6 border-r border-gray-600 min-h-screen flex flex-col">
+        <div className="flex-1 space-y-6">
           <div>
             <h3 className="text-lg font-semibold text-white mb-4">Feature inputs</h3>
             <div className="space-y-4">
@@ -579,6 +579,13 @@ const ShapForceBar: React.FC<ShapForceBarProps> = ({ className }) => {
               />
               <span className="text-sm text-white">Show impact (Δ) next to values</span>
             </label>
+          </div>
+        </div>
+        
+        {/* Copyright at bottom */}
+        <div className="mt-auto pt-6 border-t border-gray-600">
+          <div className="text-center text-xs text-gray-400">
+            © UM Institute of Data Science
           </div>
         </div>
       </div>

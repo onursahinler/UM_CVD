@@ -380,9 +380,6 @@ export function CMLRiskAnalysis({ form }: CMLRiskAnalysisProps) {
           </div>
         </main>
 
-        <footer className="mt-auto py-8 text-center text-xs text-white/70">
-          © UM Institute of Data Science
-        </footer>
       </div>
     );
   }
@@ -495,9 +492,6 @@ export function CMLRiskAnalysis({ form }: CMLRiskAnalysisProps) {
           </div>
         </main>
 
-        <footer className="mt-auto py-8 text-center text-xs text-white/70">
-          © UM Institute of Data Science
-        </footer>
       </div>
     );
   }
@@ -526,9 +520,7 @@ export function CMLRiskAnalysis({ form }: CMLRiskAnalysisProps) {
 
       </main>
 
-      <footer className="mt-auto py-8 text-center text-xs text-white/70">
-            © UM Institute of Data Science
-      </footer>
+      
     </div>
   );
 }
