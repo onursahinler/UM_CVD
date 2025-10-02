@@ -140,7 +140,7 @@ def build_force_figure(base_value: float, values: dict, contribs: dict) -> go.Fi
       • Double white chevrons at each segment boundary and the far ends.
       • A dashed vertical line marks the base value.
       • Top ticks every 500 with thousands separators.
-      • **Under‑bar labels** for every segment with vertical stems, alternating two rows to avoid overlap.
+      • **Under‑bar labels** for every segment with trapezoidal stems, closer to the bar.
     """
     height = 0.22
     y0, y1 = 0.5 - height / 2.0, 0.5 + height / 2.0
@@ -223,35 +223,55 @@ def build_force_figure(base_value: float, values: dict, contribs: dict) -> go.Fi
     # axis bounds and ticks
     xmin, xmax = nice_bounds(min(left_cursor, base_value), max(right_cursor, base_value), tick=500)
 
-    # ----- Under‑bar labels with stems (two‑row layout) -----
+    # ----- Under‑bar labels with trapezoidal stems (closer to bar) -----
     segments_for_labels.sort(key=lambda s: s["cx"])  # left → right
-    row1_y = y0 - 0.06
-    row2_y = y0 - 0.14
+    label_y = y0 - 0.03  # Much closer to the bar
 
     for i, seg in enumerate(segments_for_labels):
-        row_y = row1_y if i % 2 == 0 else row2_y
-        # vertical stem (clear \"|\" line)
+        # Trapezoidal stem connecting label to bar segment
+        stem_width = 0.008  # Width of the trapezoid at the top
+        stem_bottom_width = 0.015  # Width of the trapezoid at the bottom
+        
+        # Create trapezoidal path
+        if seg["side"] == "neg":
+            # Red trapezoid pointing up
+            trapezoid_path = f"M{seg['cx'] - stem_width/2},{y0 - 0.005} L{seg['cx'] + stem_width/2},{y0 - 0.005} L{seg['cx'] + stem_bottom_width/2},{label_y + 0.008} L{seg['cx'] - stem_bottom_width/2},{label_y + 0.008} Z"
+        else:
+            # Blue trapezoid pointing up
+            trapezoid_path = f"M{seg['cx'] - stem_width/2},{y0 - 0.005} L{seg['cx'] + stem_width/2},{y0 - 0.005} L{seg['cx'] + stem_bottom_width/2},{label_y + 0.008} L{seg['cx'] - stem_bottom_width/2},{label_y + 0.008} Z"
+        
         shapes.append(dict(
-            type="line",
-            x0=seg["cx"], x1=seg["cx"], y0=y0 - 0.005, y1=row_y + 0.01,
-            line=dict(color=STEM_GREY, width=1)
+            type="path",
+            path=trapezoid_path,
+            line=dict(width=0),
+            fillcolor=(RED if seg["side"] == "neg" else BLUE),
+            opacity=0.7
         ))
-        # label text (feature value + optional impact)
+        
+        # Label text with impact shown on the bar
         label_txt = f"{seg['label']} = {fmt_value(seg['val'])}"
-        if show_impacts:
-            label_txt += f" (Δ {fmt_delta(seg['delta'])})"
         annotations.append(dict(
-            x=seg["cx"], y=row_y, text=label_txt,
+            x=seg["cx"], y=label_y, text=label_txt,
             showarrow=False,
-            font=dict(size=12, color=(RED if seg["side"] == "neg" else BLUE)),
+            font=dict(size=11, color=(RED if seg["side"] == "neg" else BLUE)),
             xanchor="center", yanchor="top",
         ))
+        
+        # Show impact (Δ) on the bar itself
+        if show_impacts:
+            impact_text = f"Δ {fmt_delta(seg['delta'])}"
+            annotations.append(dict(
+                x=seg["cx"], y=(y0 + y1) / 2, text=impact_text,
+                showarrow=False,
+                font=dict(size=10, color="white", family="Arial Black"),
+                xanchor="center", yanchor="middle",
+            ))
 
     # ----- Figure assembly -----
     fig = go.Figure()
     fig.update_layout(
-        height=260,
-        margin=dict(l=40, r=40, t=20, b=40),
+        height=280,  # Slightly taller to accommodate closer labels
+        margin=dict(l=40, r=40, t=20, b=50),
         shapes=shapes,
         annotations=annotations,
         plot_bgcolor="rgba(0,0,0,0)",
