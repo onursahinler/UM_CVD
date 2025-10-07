@@ -269,9 +269,16 @@ const ShapForceBar: React.FC<ShapForceBarProps> = ({ className }) => {
 
     // Under-bar labels with colored connecting lines
     segmentsForLabels.sort((a, b) => a.cx - b.cx);
-    const labelY = y0 - 0.08; // Move labels further down
+    const labelYTop = y0 - 0.08; // Top row labels
+    const labelYBottom = y0 - 0.15; // Bottom row labels
 
-    segmentsForLabels.forEach((seg) => {
+    segmentsForLabels.forEach((seg, index) => {
+      // Determine if this label should be on top or bottom row
+      // 1st, 3rd, 5th (index 0, 2, 4) go to top row
+      // 2nd, 4th (index 1, 3) go to bottom row
+      const isTopRow = index % 2 === 0; // 0, 2, 4 are top row
+      const labelY = isTopRow ? labelYTop : labelYBottom;
+      
       // Colored connecting line from segment to label
       const lineColor = seg.side === "neg" ? RED : BLUE;
       
@@ -339,8 +346,8 @@ const ShapForceBar: React.FC<ShapForceBarProps> = ({ className }) => {
     return {
       data: [],
       layout: {
-        height: 320,
-        margin: { l: 40, r: 40, t: 20, b: 80 },
+        height: 380,
+        margin: { l: 40, r: 40, t: 20, b: 120 },
         shapes,
         annotations,
         plot_bgcolor: "rgba(0,0,0,0)",
@@ -628,7 +635,7 @@ const ShapForceBar: React.FC<ShapForceBarProps> = ({ className }) => {
             data={plotData.data}
             layout={plotData.layout}
             config={plotData.config}
-            style={{ width: '100%', height: '320px' }}
+            style={{ width: '100%', height: '380px' }}
           />
         </div>
 
