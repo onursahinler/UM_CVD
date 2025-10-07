@@ -367,6 +367,11 @@ const ShapForceBar: React.FC<ShapForceBarProps> = ({ className }) => {
       config: {
         displayModeBar: false,
         responsive: true,
+        scrollZoom: false,
+        doubleClick: false,
+        showTips: false,
+        editable: false,
+        staticPlot: true
       }
     };
   };
