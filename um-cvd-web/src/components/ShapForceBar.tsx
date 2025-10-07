@@ -270,7 +270,7 @@ const ShapForceBar: React.FC<ShapForceBarProps> = ({ className }) => {
     // Under-bar labels with colored connecting lines
     segmentsForLabels.sort((a, b) => a.cx - b.cx);
     const labelYTop = y0 - 0.08; // Top row labels
-    const labelYBottom = y0 - 0.15; // Bottom row labels
+    const labelYBottom = y0 - 0.18; // Bottom row labels
 
     segmentsForLabels.forEach((seg, index) => {
       // Determine if this label should be on top or bottom row
@@ -328,15 +328,15 @@ const ShapForceBar: React.FC<ShapForceBarProps> = ({ className }) => {
         yanchor: "middle",
       });
       
-      // Show impact (Δ) on the bar itself
+      // Impact text below the label
       if (showImpacts) {
         const impactText = `Δ ${fmtDelta(seg.delta)}`;
         annotations.push({
           x: seg.cx,
-          y: (y0 + y1) / 2,
+          y: labelY - 0.12,
           text: impactText,
           showarrow: false,
-          font: { size: 10, color: "white", family: "Arial Black" },
+          font: { size: 10, color: lineColor, family: "Arial, sans-serif" },
           xanchor: "center",
           yanchor: "middle",
         });
