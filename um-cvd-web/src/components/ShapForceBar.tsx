@@ -264,6 +264,47 @@ const ShapForceBar: React.FC<ShapForceBarProps> = ({ className }) => {
       fillcolor: "rgba(0,0,0,0.7)"
     });
 
+    // Base value label above the line
+    annotations.push({
+      x: BASE_VALUE,
+      y: 0.8,
+      text: "Base Value",
+      showarrow: false,
+      font: { size: 12, color: "rgba(0,0,0,0.7)", family: "Arial, sans-serif" },
+      xanchor: "center",
+      yanchor: "middle",
+    });
+
+    // Prediction line
+    shapes.push({
+      type: "line",
+      x0: prediction,
+      x1: prediction,
+      y0: 0.3,
+      y1: 0.7,
+      yref: "paper",
+      line: { color: "rgba(0, 246, 0, 0.8)", width: 2, dash: "solid" }
+    });
+    
+    // Prediction chevron (pointing right)
+    shapes.push({
+      type: "path",
+      path: trianglePath(prediction, y0, y1, "right"),
+      line: { width: 2, color: "rgba(0,150,0,0.8)" },
+      fillcolor: "rgba(0,150,0,0.8)"
+    });
+
+    // Prediction label above the line
+    annotations.push({
+      x: prediction,
+      y: 0.75,
+      text: "Prediction f(x)",
+      showarrow: false,
+      font: { size: 12, color: "rgba(0,150,0,0.8)", family: "Arial, sans-serif" },
+      xanchor: "center",
+      yanchor: "middle",
+    });
+
     // axis bounds and ticks
     const [xmin, xmax] = niceBounds(Math.min(leftCursor, BASE_VALUE), Math.max(rightCursor, BASE_VALUE), 500);
 
