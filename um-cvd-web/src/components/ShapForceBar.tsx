@@ -323,7 +323,7 @@ const ShapForceBar: React.FC<ShapForceBarProps> = ({ className }) => {
         y: labelY - 0.08,
         text: labelText,
         showarrow: false,
-        font: { size: 11, color: lineColor, family: "Arial, sans-serif" },
+        font: { size: 13, color: lineColor, family: "Arial, sans-serif" },
         xanchor: "center",
         yanchor: "middle",
       });
@@ -333,10 +333,10 @@ const ShapForceBar: React.FC<ShapForceBarProps> = ({ className }) => {
         const impactText = `Δ ${fmtDelta(seg.delta)}`;
         annotations.push({
           x: seg.cx,
-          y: labelY - 0.12,
+          y: labelY - 0.125,
           text: impactText,
           showarrow: false,
-          font: { size: 10, color: lineColor, family: "Arial, sans-serif" },
+          font: { size: 12, color: lineColor, family: "Arial, sans-serif" },
           xanchor: "center",
           yanchor: "middle",
         });
