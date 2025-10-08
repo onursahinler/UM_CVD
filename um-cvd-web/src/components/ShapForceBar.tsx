@@ -84,9 +84,6 @@ const ShapForceBar: React.FC<ShapForceBarProps> = ({ className }) => {
     return initialValues;
   });
 
-  // State for saved comparison graph
-  const [savedValues, setSavedValues] = useState<Record<string, number> | null>(null);
-  const [showComparison, setShowComparison] = useState(false);
 
   const [showImpacts, setShowImpacts] = useState(true);
   const [showColumnMenu, setShowColumnMenu] = useState<string | null>(null);
@@ -145,18 +142,6 @@ const ShapForceBar: React.FC<ShapForceBarProps> = ({ className }) => {
     return { contribs, prediction };
   }, [originalValues]);
 
-  // Calculate contributions and prediction for saved values (if any)
-  const { contribs: savedContribs, prediction: savedPrediction } = useMemo(() => {
-    if (!savedValues) return { contribs: {}, prediction: 0 };
-    
-    const contribs: Record<string, number> = {};
-    Object.keys(features).forEach(key => {
-      const feature = features[key as keyof typeof features];
-      contribs[key] = feature.weight * (savedValues[key] - feature.baseline);
-    });
-    const prediction = BASE_VALUE + Object.values(contribs).reduce((sum, val) => sum + val, 0);
-    return { contribs, prediction };
-  }, [savedValues]);
 
   // Build force figure with custom contributions
   const buildForceFigure = (customContribs: Record<string, number>, customPrediction: number, customValues: Record<string, number>) => {
@@ -612,8 +597,6 @@ const ShapForceBar: React.FC<ShapForceBarProps> = ({ className }) => {
   // Create plot data for original values
   const originalPlotData = buildForceFigure(originalContribs, originalPrediction, originalValues);
   
-  // Create plot data for saved values (if any)
-  const savedPlotData = savedValues ? buildForceFigure(savedContribs, savedPrediction, savedValues) : null;
 
   return (
     <div className="flex w-full">
@@ -751,24 +734,9 @@ const ShapForceBar: React.FC<ShapForceBarProps> = ({ className }) => {
             </svg>
             Reset to Original
           </button>
-          {savedValues && (
-            <button
-              onClick={() => setShowComparison(!showComparison)}
-              className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg font-semibold transition ${
-                showComparison 
-                  ? 'bg-blue-600 hover:bg-blue-700 text-white' 
-                  : 'bg-gray-200 hover:bg-gray-300 text-gray-700'
-              }`}
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-              </svg>
-              {showComparison ? 'Hide Comparison' : 'Show Comparison'}
-            </button>
-          )}
         </div>
 
-        {/* Original Values Graph (Fixed) */}
+        {/* Original Values Graph (Fixed) - Always visible */}
         <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
           <div className="bg-gray-50 px-4 py-3 border-b border-gray-200">
             <h3 className="text-lg font-semibold text-gray-800">Original Values (Fixed)</h3>
@@ -782,7 +750,7 @@ const ShapForceBar: React.FC<ShapForceBarProps> = ({ className }) => {
           />
         </div>
 
-        {/* Current Values Graph (Interactive) */}
+        {/* Current Values Graph (Interactive) - Always visible */}
         <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
           <div className="bg-gray-50 px-4 py-3 border-b border-gray-200">
             <h3 className="text-lg font-semibold text-gray-800">Current Values (Interactive)</h3>
@@ -795,22 +763,6 @@ const ShapForceBar: React.FC<ShapForceBarProps> = ({ className }) => {
             style={{ width: '100%', height: '380px' }}
           />
         </div>
-
-        {/* Saved Values Graph (Comparison) */}
-        {showComparison && savedValues && savedPlotData && (
-          <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-            <div className="bg-gray-50 px-4 py-3 border-b border-gray-200">
-              <h3 className="text-lg font-semibold text-gray-800">Saved Values (Comparison)</h3>
-              <p className="text-sm text-gray-600">Saved prediction: {savedPrediction.toFixed(2)}</p>
-            </div>
-            <Plot
-              data={savedPlotData.data}
-              layout={savedPlotData.layout}
-              config={savedPlotData.config}
-              style={{ width: '100%', height: '380px' }}
-            />
-          </div>
-        )}
 
         {/* Feature Contributions Table */}
         <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
