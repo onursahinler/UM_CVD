@@ -66,6 +66,16 @@ interface ShapForceBarProps {
 }
 
 const ShapForceBar: React.FC<ShapForceBarProps> = ({ className }) => {
+  // Initial values for the first (fixed) graph
+  const [originalValues, setOriginalValues] = useState<Record<string, number>>(() => {
+    const initialValues: Record<string, number> = {};
+    Object.keys(features).forEach(key => {
+      initialValues[key] = features[key as keyof typeof features].init;
+    });
+    return initialValues;
+  });
+
+  // Current values for the second (interactive) graph
   const [values, setValues] = useState<Record<string, number>>(() => {
     const initialValues: Record<string, number> = {};
     Object.keys(features).forEach(key => {
@@ -73,6 +83,11 @@ const ShapForceBar: React.FC<ShapForceBarProps> = ({ className }) => {
     });
     return initialValues;
   });
+
+  // State for saved comparison graph
+  const [savedValues, setSavedValues] = useState<Record<string, number> | null>(null);
+  const [showComparison, setShowComparison] = useState(false);
+
   const [showImpacts, setShowImpacts] = useState(true);
   const [showColumnMenu, setShowColumnMenu] = useState<string | null>(null);
   const [hiddenColumns, setHiddenColumns] = useState<Set<string>>(new Set());
@@ -108,7 +123,7 @@ const ShapForceBar: React.FC<ShapForceBarProps> = ({ className }) => {
     }
   };
 
-  // Calculate contributions and prediction
+  // Calculate contributions and prediction for current values
   const { contribs, prediction } = useMemo(() => {
     const contribs: Record<string, number> = {};
     Object.keys(features).forEach(key => {
@@ -119,8 +134,32 @@ const ShapForceBar: React.FC<ShapForceBarProps> = ({ className }) => {
     return { contribs, prediction };
   }, [values]);
 
-  // Build force figure
-  const buildForceFigure = () => {
+  // Calculate contributions and prediction for original values
+  const { contribs: originalContribs, prediction: originalPrediction } = useMemo(() => {
+    const contribs: Record<string, number> = {};
+    Object.keys(features).forEach(key => {
+      const feature = features[key as keyof typeof features];
+      contribs[key] = feature.weight * (originalValues[key] - feature.baseline);
+    });
+    const prediction = BASE_VALUE + Object.values(contribs).reduce((sum, val) => sum + val, 0);
+    return { contribs, prediction };
+  }, [originalValues]);
+
+  // Calculate contributions and prediction for saved values (if any)
+  const { contribs: savedContribs, prediction: savedPrediction } = useMemo(() => {
+    if (!savedValues) return { contribs: {}, prediction: 0 };
+    
+    const contribs: Record<string, number> = {};
+    Object.keys(features).forEach(key => {
+      const feature = features[key as keyof typeof features];
+      contribs[key] = feature.weight * (savedValues[key] - feature.baseline);
+    });
+    const prediction = BASE_VALUE + Object.values(contribs).reduce((sum, val) => sum + val, 0);
+    return { contribs, prediction };
+  }, [savedValues]);
+
+  // Build force figure with custom contributions
+  const buildForceFigure = (customContribs: Record<string, number>, customPrediction: number, customValues: Record<string, number>) => {
     const height = 0.22;
     const y0 = 0.5 - height / 2.0;
     const y1 = 0.5 + height / 2.0;
@@ -129,8 +168,8 @@ const ShapForceBar: React.FC<ShapForceBarProps> = ({ className }) => {
     const neg: Array<{label: string, val: number, key: string}> = [];
     const pos: Array<{label: string, val: number, key: string}> = [];
     
-    Object.keys(contribs).forEach(key => {
-      const val = contribs[key];
+    Object.keys(customContribs).forEach(key => {
+      const val = customContribs[key];
       const pair = { label: features[key as keyof typeof features].label, val: val, key };
       if (val < 0) {
         neg.push(pair);
@@ -186,7 +225,7 @@ const ShapForceBar: React.FC<ShapForceBarProps> = ({ className }) => {
         cx,
         side: "neg",
         label,
-        val: values[key],
+        val: customValues[key],
         delta: val,
       });
       leftCursor = actualX0;
@@ -231,7 +270,7 @@ const ShapForceBar: React.FC<ShapForceBarProps> = ({ className }) => {
         cx,
         side: "pos",
         label,
-        val: values[key],
+        val: customValues[key],
         delta: val,
       });
       rightCursor = actualX1;
@@ -306,7 +345,7 @@ const ShapForceBar: React.FC<ShapForceBarProps> = ({ className }) => {
     });
 
     // axis bounds and ticks
-    const [xmin, xmax] = niceBounds(Math.min(leftCursor, BASE_VALUE), Math.max(rightCursor, BASE_VALUE), 500);
+    const [xmin, xmax] = niceBounds(Math.min(leftCursor, BASE_VALUE), Math.max(rightCursor, customPrediction), 500);
 
     // Under-bar labels with colored connecting lines
     segmentsForLabels.sort((a, b) => a.cx - b.cx);
@@ -409,7 +448,6 @@ const ShapForceBar: React.FC<ShapForceBarProps> = ({ className }) => {
         displayModeBar: false,
         responsive: true,
         scrollZoom: false,
-        doubleClick: false,
         showTips: false,
         editable: false,
         staticPlot: true
@@ -568,7 +606,14 @@ const ShapForceBar: React.FC<ShapForceBarProps> = ({ className }) => {
     };
   }, [isTableFullscreen]);
 
-  const plotData = buildForceFigure();
+  // Create plot data for current values
+  const plotData = buildForceFigure(contribs, prediction, values);
+  
+  // Create plot data for original values
+  const originalPlotData = buildForceFigure(originalContribs, originalPrediction, originalValues);
+  
+  // Create plot data for saved values (if any)
+  const savedPlotData = savedValues ? buildForceFigure(savedContribs, savedPrediction, savedValues) : null;
 
   return (
     <div className="flex w-full">
@@ -675,8 +720,54 @@ const ShapForceBar: React.FC<ShapForceBarProps> = ({ className }) => {
           </div>
         </div>
 
-        {/* SHAP Force Bar */}
+        {/* Action Buttons */}
+        <div className="flex gap-4">
+          <button
+            onClick={() => setSavedValues({ ...values })}
+            className="inline-flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-semibold transition"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
+            </svg>
+            Save Current Values
+          </button>
+          {savedValues && (
+            <button
+              onClick={() => setShowComparison(!showComparison)}
+              className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg font-semibold transition ${
+                showComparison 
+                  ? 'bg-blue-600 hover:bg-blue-700 text-white' 
+                  : 'bg-gray-200 hover:bg-gray-300 text-gray-700'
+              }`}
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+              </svg>
+              {showComparison ? 'Hide Comparison' : 'Show Comparison'}
+            </button>
+          )}
+        </div>
+
+        {/* Original Values Graph (Fixed) */}
         <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+          <div className="bg-gray-50 px-4 py-3 border-b border-gray-200">
+            <h3 className="text-lg font-semibold text-gray-800">Original Values (Fixed)</h3>
+            <p className="text-sm text-gray-600">Initial values: {originalPrediction.toFixed(2)}</p>
+          </div>
+          <Plot
+            data={originalPlotData.data}
+            layout={originalPlotData.layout}
+            config={originalPlotData.config}
+            style={{ width: '100%', height: '380px' }}
+          />
+        </div>
+
+        {/* Current Values Graph (Interactive) */}
+        <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+          <div className="bg-gray-50 px-4 py-3 border-b border-gray-200">
+            <h3 className="text-lg font-semibold text-gray-800">Current Values (Interactive)</h3>
+            <p className="text-sm text-gray-600">Current prediction: {prediction.toFixed(2)}</p>
+          </div>
           <Plot
             data={plotData.data}
             layout={plotData.layout}
@@ -684,6 +775,22 @@ const ShapForceBar: React.FC<ShapForceBarProps> = ({ className }) => {
             style={{ width: '100%', height: '380px' }}
           />
         </div>
+
+        {/* Saved Values Graph (Comparison) */}
+        {showComparison && savedValues && savedPlotData && (
+          <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+            <div className="bg-gray-50 px-4 py-3 border-b border-gray-200">
+              <h3 className="text-lg font-semibold text-gray-800">Saved Values (Comparison)</h3>
+              <p className="text-sm text-gray-600">Saved prediction: {savedPrediction.toFixed(2)}</p>
+            </div>
+            <Plot
+              data={savedPlotData.data}
+              layout={savedPlotData.layout}
+              config={savedPlotData.config}
+              style={{ width: '100%', height: '380px' }}
+            />
+          </div>
+        )}
 
         {/* Feature Contributions Table */}
         <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
