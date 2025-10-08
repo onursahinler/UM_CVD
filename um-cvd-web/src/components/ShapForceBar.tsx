@@ -317,8 +317,8 @@ const ShapForceBar: React.FC<ShapForceBarProps> = ({ className }) => {
     // Prediction line
     shapes.push({
       type: "line",
-      x0: prediction,
-      x1: prediction,
+      x0: customPrediction,
+      x1: customPrediction,
       y0: 0.3,
       y1: 0.7,
       yref: "paper",
@@ -328,14 +328,14 @@ const ShapForceBar: React.FC<ShapForceBarProps> = ({ className }) => {
     // Prediction chevron (pointing right)
     shapes.push({
       type: "path",
-      path: trianglePath(prediction, y0, y1, "right"),
+      path: trianglePath(customPrediction, y0, y1, "right"),
       line: { width: 2, color: "rgba(0,150,0,0.8)" },
       fillcolor: "rgba(0,150,0,0.8)"
     });
 
     // Prediction label above the line
     annotations.push({
-      x: prediction,
+      x: customPrediction,
       y: 0.75,
       text: "Prediction f(x)",
       showarrow: false,
