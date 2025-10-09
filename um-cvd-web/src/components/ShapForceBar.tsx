@@ -736,20 +736,6 @@ const ShapForceBar: React.FC<ShapForceBarProps> = ({ className }) => {
           </button>
         </div>
 
-        {/* Original Values Graph (Fixed) - Always visible */}
-        <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-          <div className="bg-gray-50 px-4 py-3 border-b border-gray-200">
-            <h3 className="text-lg font-semibold text-gray-800">Original Values (Fixed)</h3>
-            <p className="text-sm text-gray-600">Initial values: {originalPrediction.toFixed(2)}</p>
-          </div>
-          <Plot
-            data={originalPlotData.data}
-            layout={originalPlotData.layout}
-            config={originalPlotData.config}
-            style={{ width: '100%', height: '380px' }}
-          />
-        </div>
-
         {/* Current Values Graph (Interactive) - Always visible */}
         <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
           <div className="bg-gray-50 px-4 py-3 border-b border-gray-200">
@@ -760,6 +746,20 @@ const ShapForceBar: React.FC<ShapForceBarProps> = ({ className }) => {
             data={plotData.data}
             layout={plotData.layout}
             config={plotData.config}
+            style={{ width: '100%', height: '380px' }}
+          />
+        </div>
+
+        {/* Original Values Graph (Fixed) - Always visible */}
+        <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+          <div className="bg-gray-50 px-4 py-3 border-b border-gray-200">
+            <h3 className="text-lg font-semibold text-gray-800">Original Values (Fixed)</h3>
+            <p className="text-sm text-gray-600">Initial values: {originalPrediction.toFixed(2)}</p>
+          </div>
+          <Plot
+            data={originalPlotData.data}
+            layout={originalPlotData.layout}
+            config={originalPlotData.config}
             style={{ width: '100%', height: '380px' }}
           />
         </div>
