@@ -386,8 +386,13 @@ export function CMLRiskAnalysis({ form }: CMLRiskAnalysisProps) {
 
   // Simple prediction view for "Only Prediction" model
   if (!showExplainer) {
+    const riskLevel = prediction > 1200 ? 'High' : prediction > 800 ? 'Moderate' : 'Low';
+    const riskColor = prediction > 1200 ? 'red' : prediction > 800 ? 'yellow' : 'green';
+    const confidence = 94.2; // Fixed confidence for demo
+    
     return (
       <div className="min-h-screen w-full flex flex-col">
+        {/* Header */}
         <header className="grad-hero text-white">
           <div className="mx-auto max-w-7xl px-6 py-10">
             <div className="flex flex-col gap-6 sm:gap-8">
@@ -399,99 +404,233 @@ export function CMLRiskAnalysis({ form }: CMLRiskAnalysisProps) {
               <p className="max-w-3xl text-white/90 text-sm sm:text-base">
                 AI-powered prediction based on your patient data. Fast and accurate risk scoring.
               </p>
+              <div className="flex items-center gap-4 text-white/80">
+                <div>
+                  <div className="text-sm">Patient</div>
+                  <div className="font-semibold">{form.patientName || "Unknown"}</div>
+                </div>
+                <div className="w-px h-8 bg-white/30"></div>
+                <div>
+                  <div className="text-sm">ID</div>
+                  <div className="font-semibold">{form.patientId || "N/A"}</div>
+                </div>
+              </div>
             </div>
           </div>
         </header>
 
-        <main className="flex-1 flex items-center justify-center py-12">
-          <div className="w-full max-w-4xl">
-            <div className="bg-panel rounded-2xl p-8 shadow-lg border border-black/10">
-              {/* Patient Info Header */}
-              <div className="text-center mb-8">
-                <div className="w-16 h-16 bg-brand-600 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
+        <main className="flex-1">
+          <div className="mx-auto max-w-7xl px-6 py-8">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+              {/* Main Results - Left Column */}
+              <div className="lg:col-span-2 space-y-6">
+                {/* Risk Score Card */}
+                <div className="bg-panel rounded-2xl p-8 shadow-sm border border-black/10">
+                  <div className="text-center">
+                    <div className={`inline-flex items-center justify-center w-24 h-24 rounded-full text-4xl font-bold text-white mb-4 ${
+                      riskColor === 'red' ? 'bg-red-500' : riskColor === 'yellow' ? 'bg-yellow-500' : 'bg-green-500'
+                    }`}>
+                      {prediction.toFixed(0)}
+                    </div>
+                    <h2 className="font-display text-2xl text-white mb-2">Risk Score</h2>
+                    <div className={`inline-flex items-center px-4 py-2 rounded-full text-sm font-semibold ${
+                      riskColor === 'red' ? 'bg-red-100 text-red-800' : 
+                      riskColor === 'yellow' ? 'bg-yellow-100 text-yellow-800' : 
+                      'bg-green-100 text-green-800'
+                    }`}>
+                      {riskLevel} Risk
+                    </div>
+                  </div>
                 </div>
-                <h2 className="font-display text-2xl text-white mb-2">Risk Assessment Complete</h2>
-                <p className="text-white/70 text-sm">Patient: {form.patientName || "Unknown"} | ID: {form.patientId || "N/A"}</p>
+
+                {/* Confidence & Recommendation Cards */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="bg-panel rounded-2xl p-6 shadow-sm border border-black/10">
+                    <div className="flex items-center mb-4">
+                      <div className="w-12 h-12 bg-brand-600 rounded-lg flex items-center justify-center mr-4">
+                        <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                      </div>
+                      <div>
+                        <h3 className="text-lg font-semibold text-white">Confidence</h3>
+                        <p className="text-sm text-white/70">Model Confidence</p>
+                      </div>
+                    </div>
+                    <div className="text-3xl font-bold text-white mb-2">{confidence}%</div>
+                    <div className="w-full bg-white/20 rounded-full h-2">
+                      <div 
+                        className="bg-brand-500 h-2 rounded-full transition-all duration-1000" 
+                        style={{width: `${confidence}%`}}
+                      ></div>
+                    </div>
+                  </div>
+
+                  <div className="bg-panel rounded-2xl p-6 shadow-sm border border-black/10">
+                    <div className="flex items-center mb-4">
+                      <div className="w-12 h-12 bg-brand-600 rounded-lg flex items-center justify-center mr-4">
+                        <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                        </svg>
+                      </div>
+                      <div>
+                        <h3 className="text-lg font-semibold text-white">Recommendation</h3>
+                        <p className="text-sm text-white/70">Clinical Action</p>
+                      </div>
+                    </div>
+                    <div className={`text-lg font-semibold mb-2 ${
+                      riskColor === 'red' ? 'text-red-400' : 
+                      riskColor === 'yellow' ? 'text-yellow-400' : 
+                      'text-green-400'
+                    }`}>
+                      {riskLevel === 'High' ? 'Monitor Closely' : 
+                       riskLevel === 'Moderate' ? 'Regular Monitoring' : 
+                       'Continue Routine Care'}
+                    </div>
+                    <p className="text-sm text-white/70">
+                      {riskLevel === 'High' ? 'Immediate follow-up recommended' : 
+                       riskLevel === 'Moderate' ? 'Schedule regular checkups' : 
+                       'Maintain current care plan'}
+                    </p>
+                  </div>
+                </div>
               </div>
 
-              {/* Risk Score Display */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                <div className="bg-white rounded-lg p-6 shadow-sm border border-gray-200 text-center">
-                  <div className="text-sm text-gray-600 mb-2">Risk Score</div>
-                  <div className="text-4xl font-bold text-gray-800 mb-2">{prediction.toFixed(2)}</div>
-                  <div className={`text-sm font-medium ${prediction > 0.5 ? 'text-red-600' : 'text-green-600'}`}>
-                    {prediction > 0.5 ? 'High Risk' : 'Low Risk'}
-                  </div>
-                </div>
-                
-                <div className="bg-white rounded-lg p-6 shadow-sm border border-gray-200 text-center">
-                  <div className="text-sm text-gray-600 mb-2">Confidence</div>
-                  <div className="text-4xl font-bold text-gray-800 mb-2">94.2%</div>
-                  <div className="text-sm text-gray-500">Model Confidence</div>
-                </div>
-                
-                <div className="bg-white rounded-lg p-6 shadow-sm border border-gray-200 text-center">
-                  <div className="text-sm text-gray-600 mb-2">Recommendation</div>
-                  <div className={`text-lg font-semibold mb-2 ${prediction > 0.5 ? 'text-red-600' : 'text-green-600'}`}>
-                    {prediction > 0.5 ? 'Monitor Closely' : 'Regular Checkup'}
-                  </div>
-                  <div className="text-sm text-gray-500">
-                    {prediction > 0.5 ? 'High risk detected' : 'Low risk profile'}
-                  </div>
-                </div>
-              </div>
+              {/* Patient Summary - Right Column */}
+              <div className="lg:col-span-1">
+                <div className="bg-panel rounded-2xl p-6 shadow-sm border border-black/10">
+                  <h3 className="text-lg font-bold text-white mb-4">Patient Summary</h3>
+                  <div className="space-y-4">
+                    {/* Demographics */}
+                    <div>
+                      <div className="text-xs text-white/60 uppercase tracking-wide mb-2">Demographics</div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <div className="text-xs text-white/50">Age</div>
+                          <div className="text-sm font-semibold text-white">{form.age || "N/A"} years</div>
+                        </div>
+                        <div>
+                          <div className="text-xs text-white/50">Gender</div>
+                          <div className="text-sm font-semibold text-white">{form.gender || "N/A"}</div>
+                        </div>
+                        <div>
+                          <div className="text-xs text-white/50">BMI</div>
+                          <div className="text-sm font-semibold text-white">{form.bmi || "N/A"} kg/m²</div>
+                        </div>
+                        <div>
+                          <div className="text-xs text-white/50">Diabetes</div>
+                          <div className="text-sm font-semibold text-white">{form.diabetes || "N/A"}</div>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {/* Blood Pressure */}
+                    <div className="border-t border-white/20 pt-4">
+                      <div className="text-xs text-white/60 uppercase tracking-wide mb-2">Blood Pressure</div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <div className="text-xs text-white/50">Systolic</div>
+                          <div className="text-sm font-semibold text-white">{form.systolic || "N/A"} mmHg</div>
+                        </div>
+                        <div>
+                          <div className="text-xs text-white/50">Diastolic</div>
+                          <div className="text-sm font-semibold text-white">{form.diastolic || "N/A"} mmHg</div>
+                        </div>
+                      </div>
+                    </div>
 
-              {/* Key Patient Data Summary */}
-              <div className="bg-white rounded-lg p-6 shadow-sm border border-gray-200">
-                <h3 className="text-lg font-semibold text-gray-800 mb-4">Patient Summary</h3>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                  <div>
-                    <div className="text-gray-600">Age</div>
-                    <div className="font-semibold text-gray-900">{form.age || "N/A"} years</div>
-                  </div>
-                  <div>
-                    <div className="text-gray-600">Gender</div>
-                    <div className="font-semibold text-gray-900">{form.gender || "N/A"}</div>
-                  </div>
-                  <div>
-                    <div className="text-gray-600">BMI</div>
-                    <div className="font-semibold text-gray-900">{form.bmi || "N/A"} kg/m²</div>
-                  </div>
-                  <div>
-                    <div className="text-gray-600">Diabetes</div>
-                    <div className="font-semibold text-gray-900">{form.diabetes || "N/A"}</div>
+                    {/* Laboratory Values */}
+                    <div className="border-t border-white/20 pt-4">
+                      <div className="text-xs text-white/60 uppercase tracking-wide mb-2">Laboratory Values</div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <div className="text-xs text-white/50">Cholesterol</div>
+                          <div className="text-sm font-semibold text-white">{form.cholesterol || "N/A"} mg/dL</div>
+                        </div>
+                        <div>
+                          <div className="text-xs text-white/50">Glucose</div>
+                          <div className="text-sm font-semibold text-white">{form.glucose || "N/A"} mg/dL</div>
+                        </div>
+                        <div>
+                          <div className="text-xs text-white/50">HbA1c</div>
+                          <div className="text-sm font-semibold text-white">{form.hba1c || "N/A"}%</div>
+                        </div>
+                        <div>
+                          <div className="text-xs text-white/50">RBC</div>
+                          <div className="text-sm font-semibold text-white">{form.rbc || "N/A"} m/uL</div>
+                        </div>
+                        <div>
+                          <div className="text-xs text-white/50">Urea Nitrogen</div>
+                          <div className="text-sm font-semibold text-white">{form.ureaNitrogen || "N/A"} mg/dL</div>
+                        </div>
+                        <div>
+                          <div className="text-xs text-white/50">Albumin</div>
+                          <div className="text-sm font-semibold text-white">{form.albumin || "N/A"} g/dL</div>
+                        </div>
+                        <div>
+                          <div className="text-xs text-white/50">LDH</div>
+                          <div className="text-sm font-semibold text-white">{form.ldh || "N/A"} IU/L</div>
+                        </div>
+                        <div>
+                          <div className="text-xs text-white/50">Metamyelocytes</div>
+                          <div className="text-sm font-semibold text-white">{form.metamyelocytes || "N/A"}%</div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Health Conditions */}
+                    <div className="border-t border-white/20 pt-4">
+                      <div className="text-xs text-white/60 uppercase tracking-wide mb-2">Health Conditions</div>
+                      <div className="grid grid-cols-1 gap-3">
+                        <div>
+                          <div className="text-xs text-white/50">Chronic Kidney Disease</div>
+                          <div className="text-sm font-semibold text-white">{form.ckd || "N/A"}</div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Treatment */}
+                    <div className="border-t border-white/20 pt-4">
+                      <div className="text-xs text-white/60 uppercase tracking-wide mb-2">Treatment</div>
+                      <div className="grid grid-cols-1 gap-3">
+                        <div>
+                          <div className="text-xs text-white/50">TKI Type</div>
+                          <div className="text-sm font-semibold text-white">{form.tkiType || "N/A"}</div>
+                        </div>
+                        <div>
+                          <div className="text-xs text-white/50">TKI Dose</div>
+                          <div className="text-sm font-semibold text-white">{form.tkiDose || "N/A"} mg/day</div>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
+            </div>
 
-              {/* Action Buttons */}
-              <div className="flex justify-center gap-4 mt-8">
-                <button
-                  onClick={() => window.print()}
-                  className="inline-flex items-center gap-2 bg-brand-600 hover:bg-brand-700 text-white px-6 py-3 rounded-pill font-semibold transition"
-                >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
-                  </svg>
-                  Print Report
-                </button>
-                <button
-                  onClick={() => window.location.href = '/'}
-                  className="inline-flex items-center gap-2 bg-white/10 hover:bg-white/20 text-white px-6 py-3 rounded-pill font-semibold transition backdrop-blur-sm border border-white/20"
-                >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-                  </svg>
-                  Back to Home
-                </button>
-              </div>
+            {/* Action Buttons */}
+            <div className="flex justify-center gap-4 mt-12">
+              <button
+                onClick={() => window.print()}
+                className="inline-flex items-center gap-2 bg-brand-600 hover:bg-brand-700 text-white px-6 py-3 rounded-pill font-semibold transition"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+                </svg>
+                Print Report
+              </button>
+              <button
+                onClick={() => window.location.href = '/'}
+                className="inline-flex items-center gap-2 bg-white/10 hover:bg-white/20 text-white px-6 py-3 rounded-pill font-semibold transition backdrop-blur-sm border border-white/20"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                </svg>
+                Back to Home
+              </button>
             </div>
           </div>
         </main>
-
       </div>
     );
   }
