@@ -25,6 +25,7 @@ export function DemographicStep({ form, errors, onInput, onToggle }: Demographic
         label="Age (years)"
         placeholder="Ex: 65"
         step={1}
+        min={0}
         required
         value={form.age}
         onChange={onInput("age")}
@@ -42,6 +43,7 @@ export function DemographicStep({ form, errors, onInput, onToggle }: Demographic
         label="BMI (kg/m²)"
         placeholder="Ex: 24.7"
         step={0.1}
+        min={0}
         required
         value={form.bmi}
         onChange={onInput("bmi")}
@@ -59,6 +61,7 @@ export function DemographicStep({ form, errors, onInput, onToggle }: Demographic
         label="Diastolic (mmHg)"
         placeholder="Ex: 80"
         step={1}
+        min={0}
         required
         value={form.diastolic}
         onChange={onInput("diastolic")}
@@ -76,6 +79,7 @@ export function DemographicStep({ form, errors, onInput, onToggle }: Demographic
         label="Systolic (mmHg)"
         placeholder="Ex: 120"
         step={1}
+        min={0}
         required
         value={form.systolic}
         onChange={onInput("systolic")}

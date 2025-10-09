@@ -33,13 +33,36 @@ export function PillInput({ label, helper, error, required, ...rest }: InputProp
 
 // Number input (controlled) without custom controls
 export function PillNumberInput({ label, helper, error, required, step = 1, min, max, onChange, value, ...rest }: InputProps & { step?: number }) {
-  const border = error ? "border-red-500" : "border-black/10";
+  const [localError, setLocalError] = React.useState<string>("");
+  const border = error || localError ? "border-red-500" : "border-black/10";
   const effectiveMin = typeof min === "number" ? min : 0; // default no negatives
 
   const handleChange: React.ChangeEventHandler<HTMLInputElement> = (e) => {
+    const inputValue = e.target.value;
+    const numValue = parseFloat(inputValue);
+    
+    // Clear local error when user starts typing
+    if (localError) {
+      setLocalError("");
+    }
+    
+    // Check for negative values
+    if (inputValue !== "" && !isNaN(numValue) && numValue < effectiveMin) {
+      setLocalError(`Please enter a value greater than or equal to ${effectiveMin}`);
+      return; // Don't update the value
+    }
+    
+    // Check for maximum value
+    if (max !== undefined && inputValue !== "" && !isNaN(numValue) && numValue > (max as number)) {
+      setLocalError(`Please enter a value less than or equal to ${max}`);
+      return; // Don't update the value
+    }
+    
     // forward event to parent
     onChange?.(e);
   };
+
+  const displayError = error || localError;
 
   return (
     <div>
@@ -54,13 +77,13 @@ export function PillNumberInput({ label, helper, error, required, step = 1, min,
         min={effectiveMin}
         max={max as number | undefined}
         inputMode="decimal"
-        aria-invalid={!!error}
+        aria-invalid={!!displayError}
         value={value as any}
         onChange={handleChange}
-        className={`mt-2 w-full rounded-pill border ${border} bg-white px-4 py-3 outline-none focus:ring-2 ${error ? "focus:ring-red-500" : "focus:ring-brand-400"} text-black placeholder-black/50`}
+        className={`mt-2 w-full rounded-pill border ${border} bg-white px-4 py-3 outline-none focus:ring-2 ${displayError ? "focus:ring-red-500" : "focus:ring-brand-400"} text-black placeholder-black/50`}
       />
-      {error ? (
-        <p className="mt-1 text-xs text-red-600">{error}</p>
+      {displayError ? (
+        <p className="mt-1 text-xs text-red-600">{displayError}</p>
       ) : (
         helper && <p className="mt-1 text-xs text-foreground/60">{helper}</p>
       )}

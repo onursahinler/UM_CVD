@@ -34,6 +34,7 @@ export function TreatmentStep({ form, errors, onToggle, onInput, onTkiTypeChange
         label="Dose (mg/day)"
         placeholder="Ex: 400"
         step={1}
+        min={0}
         required
         value={form.tkiDose}
         onChange={onInput("tkiDose")}
