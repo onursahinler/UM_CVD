@@ -69,7 +69,7 @@ const Navigation = memo(() => {
           </div>
 
           {/* Mobile menu button */}
-          <div className="md:hidden">
+          <div className="md:hidden print:hidden">
             <button
               onClick={() => setIsMenuOpen(!isMenuOpen)}
               className="text-foreground/70 hover:text-foreground focus:outline-none focus:text-foreground"
@@ -87,7 +87,7 @@ const Navigation = memo(() => {
 
         {/* Mobile Navigation */}
         {isMenuOpen && (
-          <div className="md:hidden">
+          <div className="md:hidden print:hidden">
             <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3 border-t border-foreground/10">
               {navItems.map((item) => (
                 <Link

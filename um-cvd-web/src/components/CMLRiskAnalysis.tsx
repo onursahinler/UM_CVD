@@ -447,29 +447,30 @@ export function CMLRiskAnalysis({ form }: CMLRiskAnalysisProps) {
                   </div>
                 </div>
 
-                {/* Confidence & Recommendation Cards */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="bg-panel rounded-2xl p-6 shadow-sm border border-black/10">
-                    <div className="flex items-center mb-4">
-                      <div className="w-12 h-12 bg-brand-600 rounded-lg flex items-center justify-center mr-4">
-                        <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                      </div>
-                      <div>
-                        <h3 className="text-lg font-semibold text-white">Confidence</h3>
-                        <p className="text-sm text-white/70">Model Confidence</p>
-                      </div>
+                {/* Confidence Card */}
+                <div className="bg-panel rounded-2xl p-6 shadow-sm border border-black/10">
+                  <div className="flex items-center mb-4">
+                    <div className="w-12 h-12 bg-brand-600 rounded-lg flex items-center justify-center mr-4">
+                      <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
                     </div>
-                    <div className="text-3xl font-bold text-white mb-2">{confidence}%</div>
-                    <div className="w-full bg-white/20 rounded-full h-2">
-                      <div 
-                        className="bg-brand-500 h-2 rounded-full transition-all duration-1000" 
-                        style={{width: `${confidence}%`}}
-                      ></div>
+                    <div>
+                      <h3 className="text-lg font-semibold text-white">Confidence</h3>
+                      <p className="text-sm text-white/70">Model Confidence</p>
                     </div>
                   </div>
+                  <div className="text-3xl font-bold text-white mb-2">{confidence}%</div>
+                  <div className="w-full bg-white/20 rounded-full h-2">
+                    <div 
+                      className="bg-brand-500 h-2 rounded-full transition-all duration-1000" 
+                      style={{width: `${confidence}%`}}
+                    ></div>
+                  </div>
+                </div>
 
+                {/* Recommendation Card - Force to new page */}
+                <div className="print:page-break-before-always print:page-break-inside-avoid print:break-inside-avoid">
                   <div className="bg-panel rounded-2xl p-6 shadow-sm border border-black/10">
                     <div className="flex items-center mb-4">
                       <div className="w-12 h-12 bg-brand-600 rounded-lg flex items-center justify-center mr-4">
@@ -613,7 +614,7 @@ export function CMLRiskAnalysis({ form }: CMLRiskAnalysisProps) {
             </div>
 
             {/* Action Buttons */}
-            <div className="flex justify-center gap-4 mt-12">
+            <div className="flex justify-center gap-4 mt-12 print:hidden">
               <button
                 onClick={() => window.print()}
                 className="inline-flex items-center gap-2 bg-brand-600 hover:bg-brand-700 text-white px-6 py-3 rounded-pill font-semibold transition"
