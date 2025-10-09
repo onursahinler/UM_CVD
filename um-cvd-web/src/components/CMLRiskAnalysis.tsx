@@ -427,9 +427,13 @@ export function CMLRiskAnalysis({ form }: CMLRiskAnalysisProps) {
                 {/* Risk Score Card */}
                 <div className="bg-panel rounded-2xl p-8 shadow-sm border border-black/10">
                   <div className="text-center">
-                    <div className={`inline-flex items-center justify-center w-24 h-24 rounded-full text-4xl font-bold text-white mb-4 ${
+                    <div className={`inline-flex items-center justify-center rounded-full font-bold text-white mb-4 ${
                       riskColor === 'red' ? 'bg-red-500' : riskColor === 'yellow' ? 'bg-yellow-500' : 'bg-green-500'
-                    }`}>
+                    }`} style={{
+                      width: `${Math.max(80, Math.min(120, 60 + prediction.toString().length * 8))}px`,
+                      height: `${Math.max(80, Math.min(120, 60 + prediction.toString().length * 8))}px`,
+                      fontSize: `${Math.max(24, Math.min(48, 48 - prediction.toString().length * 2))}px`
+                    }}>
                       {prediction.toFixed(0)}
                     </div>
                     <h2 className="font-display text-2xl text-white mb-2">Risk Score</h2>
