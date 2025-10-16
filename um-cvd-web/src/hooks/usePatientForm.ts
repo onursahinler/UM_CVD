@@ -14,8 +14,6 @@ const initialFormState: PatientForm = {
   diastolic: "",
   systolic: "",
   gender: "",
-  diabetes: "",
-  ckd: "",
   
   // Laboratory
   rbc: "",
@@ -113,9 +111,7 @@ export const usePatientForm = () => {
       age: data.age?.toString() || "",
       gender: data.gender || "",
       bmi: data.bmi?.toString() || "",
-      diabetes: data.diabetes || "",
       diastolic: data.diastolic?.toString() || "",
-      ckd: data.ckd || "",
       systolic: data.systolic?.toString() || "",
       rbc: data.rbc?.toString() || "",
       ureaNitrogen: data.ureaNitrogen?.toString() || "",

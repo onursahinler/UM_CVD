@@ -522,10 +522,6 @@ export function CMLRiskAnalysis({ form }: CMLRiskAnalysisProps) {
                           <div className="text-xs text-white/50">BMI</div>
                           <div className="text-sm font-semibold text-white">{form.bmi || "N/A"} kg/m²</div>
                         </div>
-                        <div>
-                          <div className="text-xs text-white/50">Diabetes</div>
-                          <div className="text-sm font-semibold text-white">{form.diabetes || "N/A"}</div>
-                        </div>
                       </div>
                     </div>
                     
@@ -583,16 +579,6 @@ export function CMLRiskAnalysis({ form }: CMLRiskAnalysisProps) {
                       </div>
                     </div>
 
-                    {/* Health Conditions */}
-                    <div className="border-t border-white/20 pt-4">
-                      <div className="text-xs text-white/60 uppercase tracking-wide mb-2">Health Conditions</div>
-                      <div className="grid grid-cols-1 gap-3">
-                        <div>
-                          <div className="text-xs text-white/50">Chronic Kidney Disease</div>
-                          <div className="text-sm font-semibold text-white">{form.ckd || "N/A"}</div>
-                        </div>
-                      </div>
-                    </div>
 
                     {/* Treatment */}
                     <div className="border-t border-white/20 pt-4">

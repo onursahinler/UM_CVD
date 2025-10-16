@@ -32,15 +32,18 @@ export const FormProvider = ({ children }: FormProviderProps) => {
 
   useEffect(() => {
     // Check for saved form data on app start
-    const savedFormData = localStorage.getItem('patientForm');
-    if (savedFormData) {
-      try {
-        const parsedForm = JSON.parse(savedFormData);
-        setSavedForm(parsedForm);
-        setHasIncompleteForm(true);
-      } catch (error) {
-        console.error('Error parsing saved form data:', error);
-        localStorage.removeItem('patientForm');
+    // Only access localStorage on client side
+    if (typeof window !== 'undefined') {
+      const savedFormData = localStorage.getItem('patientForm');
+      if (savedFormData) {
+        try {
+          const parsedForm = JSON.parse(savedFormData);
+          setSavedForm(parsedForm);
+          setHasIncompleteForm(true);
+        } catch (error) {
+          console.error('Error parsing saved form data:', error);
+          localStorage.removeItem('patientForm');
+        }
       }
     }
   }, []);
@@ -49,7 +52,7 @@ export const FormProvider = ({ children }: FormProviderProps) => {
     // Only save if form has some meaningful data
     const hasData = Object.values(form).some(value => value && value.toString().trim() !== '');
     
-    if (hasData) {
+    if (hasData && typeof window !== 'undefined') {
       localStorage.setItem('patientForm', JSON.stringify(form));
       setSavedForm(form);
       setHasIncompleteForm(true);
@@ -57,21 +60,25 @@ export const FormProvider = ({ children }: FormProviderProps) => {
   }, []);
 
   const loadForm = useCallback((): PatientForm | null => {
-    const savedFormData = localStorage.getItem('patientForm');
-    if (savedFormData) {
-      try {
-        return JSON.parse(savedFormData);
-      } catch (error) {
-        console.error('Error parsing saved form data:', error);
-        localStorage.removeItem('patientForm');
-        return null;
+    if (typeof window !== 'undefined') {
+      const savedFormData = localStorage.getItem('patientForm');
+      if (savedFormData) {
+        try {
+          return JSON.parse(savedFormData);
+        } catch (error) {
+          console.error('Error parsing saved form data:', error);
+          localStorage.removeItem('patientForm');
+          return null;
+        }
       }
     }
     return null;
   }, []);
 
   const clearSavedForm = useCallback(() => {
-    localStorage.removeItem('patientForm');
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('patientForm');
+    }
     setSavedForm(null);
     setHasIncompleteForm(false);
   }, []);

@@ -317,7 +317,7 @@ with col2:
 # Render the force bar
 # =============================================================
 fig = build_force_figure(BASE_VALUE, values, contribs)
-st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
+st.plotly_chart(fig, width='stretch', config={"displayModeBar": False})
 
 # =============================================================
 # Contributions table (optional)
@@ -332,4 +332,4 @@ for k, meta in features.items():
         "contribution": contribs[k],
     })
 df = pd.DataFrame(rows).sort_values("contribution", key=lambda s: s.abs(), ascending=False)
-st.dataframe(df, use_container_width=True)
+st.dataframe(df, width='stretch')

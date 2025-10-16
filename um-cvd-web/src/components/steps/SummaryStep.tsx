@@ -1,9 +1,10 @@
 "use client";
 
 import React from "react";
+import { PatientForm } from "@/types";
 
 interface SummaryStepProps {
-  form: Record<string, string>;
+  form: PatientForm;
 }
 
 export function SummaryStep({ form }: SummaryStepProps) {
@@ -15,9 +16,7 @@ export function SummaryStep({ form }: SummaryStepProps) {
       age: form.age ? parseFloat(form.age) : null,
       gender: form.gender || "",
       bmi: form.bmi ? parseFloat(form.bmi) : null,
-      diabetes: form.diabetes || "",
       diastolic: form.diastolic ? parseFloat(form.diastolic) : null,
-      ckd: form.ckd || "",
       systolic: form.systolic ? parseFloat(form.systolic) : null,
       rbc: form.rbc ? parseFloat(form.rbc) : null,
       ureaNitrogen: form.ureaNitrogen ? parseFloat(form.ureaNitrogen) : null,
@@ -59,9 +58,7 @@ export function SummaryStep({ form }: SummaryStepProps) {
         { k: "age", label: "Age" },
         { k: "gender", label: "Gender" },
         { k: "bmi", label: "BMI (kg/m²)" },
-        { k: "diabetes", label: "Diabetes Mellitus" },
         { k: "diastolic", label: "Diastolic (mmHg)" },
-        { k: "ckd", label: "Chronic Kidney Disease" },
         { k: "systolic", label: "Systolic (mmHg)" },
       ]
     },
@@ -118,7 +115,7 @@ export function SummaryStep({ form }: SummaryStepProps) {
               <div key={field.k} className="bg-white rounded-xl p-3 border border-black/10">
                 <div className="text-xs text-gray-600 font-medium">{field.label}</div>
                 <div className="mt-1 text-sm font-semibold text-black">
-                  {field.transform ? field.transform(form[field.k]) : form[field.k] || "-"}
+                  {field.transform ? field.transform(form[field.k as keyof PatientForm]) : (form[field.k as keyof PatientForm] as string) || "-"}
                 </div>
               </div>
             ))}

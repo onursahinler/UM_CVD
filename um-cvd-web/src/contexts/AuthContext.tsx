@@ -34,9 +34,17 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
   useEffect(() => {
     // Check if user is logged in on app start
-    const savedUser = localStorage.getItem('user');
-    if (savedUser) {
-      setUser(JSON.parse(savedUser));
+    // Only access localStorage on client side
+    if (typeof window !== 'undefined') {
+      const savedUser = localStorage.getItem('user');
+      if (savedUser) {
+        try {
+          setUser(JSON.parse(savedUser));
+        } catch (error) {
+          console.error('Error parsing saved user data:', error);
+          localStorage.removeItem('user');
+        }
+      }
     }
     setIsLoading(false);
   }, []);
@@ -51,7 +59,9 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     if (email === "admin@admin.com" && password === "123123") {
       const userData = { email, name: "Admin User" };
       setUser(userData);
-      localStorage.setItem('user', JSON.stringify(userData));
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('user', JSON.stringify(userData));
+      }
       setIsLoading(false);
       return true;
     } else {
@@ -62,7 +72,9 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
   const logout = () => {
     setUser(null);
-    localStorage.removeItem('user');
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('user');
+    }
   };
 
   const value = {

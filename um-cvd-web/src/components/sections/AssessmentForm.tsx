@@ -70,8 +70,6 @@ const AssessmentForm = memo(({
                 diastolic: form.diastolic,
                 systolic: form.systolic,
                 gender: form.gender,
-                diabetes: form.diabetes,
-                ckd: form.ckd,
               }}
               errors={errors}
               onInput={onInput}

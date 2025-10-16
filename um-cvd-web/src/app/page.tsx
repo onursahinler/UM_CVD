@@ -5,8 +5,20 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useFormContext } from "@/contexts/FormContext";
 
 export default function Home() {
-  const { user } = useAuth();
+  const { user, isLoading: authLoading } = useAuth();
   const { hasIncompleteForm } = useFormContext();
+
+  // Show loading state while contexts are initializing
+  if (authLoading) {
+    return (
+      <div className="min-h-screen w-full flex items-center justify-center bg-background">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-600 mx-auto mb-4"></div>
+          <p className="text-foreground/70">Loading...</p>
+        </div>
+      </div>
+    );
+  }
   return (
     <div className="min-h-screen w-full flex flex-col bg-background">
       <header className="grad-hero text-white">

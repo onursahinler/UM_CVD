@@ -10,12 +10,10 @@ interface DemographicStepProps {
     diastolic: string;
     systolic: string;
     gender: string;
-    diabetes: string;
-    ckd: string;
   };
   errors: Record<string, string>;
   onInput: (key: "age" | "bmi" | "diastolic" | "systolic") => (e: React.ChangeEvent<HTMLInputElement>) => void;
-  onToggle: (key: "gender" | "diabetes" | "ckd") => (val: string) => void;
+  onToggle: (key: "gender") => (val: string) => void;
 }
 
 export function DemographicStep({ form, errors, onInput, onToggle }: DemographicStepProps) {
@@ -49,14 +47,6 @@ export function DemographicStep({ form, errors, onInput, onToggle }: Demographic
         onChange={onInput("bmi")}
         error={errors.bmi}
       />
-      <PillToggle
-        label="Diabetes Mellitus"
-        required
-        options={[{ value: "yes", label: "Yes" }, { value: "no", label: "No" }]}
-        value={form.diabetes}
-        onChange={onToggle("diabetes")}
-        error={errors.diabetes}
-      />
       <PillNumberInput
         label="Diastolic (mmHg)"
         placeholder="Ex: 80"
@@ -66,14 +56,6 @@ export function DemographicStep({ form, errors, onInput, onToggle }: Demographic
         value={form.diastolic}
         onChange={onInput("diastolic")}
         error={errors.diastolic}
-      />
-      <PillToggle
-        label="Chronic Kidney Disease"
-        required
-        options={[{ value: "yes", label: "Yes" }, { value: "no", label: "No" }]}
-        value={form.ckd}
-        onChange={onToggle("ckd")}
-        error={errors.ckd}
       />
       <PillNumberInput
         label="Systolic (mmHg)"
