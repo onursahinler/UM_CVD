@@ -82,14 +82,17 @@ const AssessmentForm = memo(({
         return (
           <LaboratoryStep
             form={{
-              rbc: form.rbc,
               ureaNitrogen: form.ureaNitrogen,
-              albumin: form.albumin,
-              ldh: form.ldh,
-              metamyelocytes: form.metamyelocytes,
-              cholesterol: form.cholesterol,
-              hba1c: form.hba1c,
               glucose: form.glucose,
+              whiteBloodCells: form.whiteBloodCells,
+              neutrophils: form.neutrophils,
+              monocytes: form.monocytes,
+              mch: form.mch,
+              calciumTotal: form.calciumTotal,
+              lymphocytes: form.lymphocytes,
+              creatinine: form.creatinine,
+              sodium: form.sodium,
+              pt: form.pt,
             }}
             errors={errors}
             onInput={onInput}

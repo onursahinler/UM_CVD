@@ -5,91 +5,35 @@ import { PillNumberInput } from "../FormFields";
 
 interface LaboratoryStepProps {
   form: {
-    rbc: string;
     ureaNitrogen: string;
-    albumin: string;
-    ldh: string;
-    metamyelocytes: string;
-    cholesterol: string;
-    hba1c: string;
     glucose: string;
+    whiteBloodCells: string;
+    neutrophils: string;
+    monocytes: string;
+    mch: string;
+    calciumTotal: string;
+    lymphocytes: string;
+    creatinine: string;
+    sodium: string;
+    pt: string;
   };
   errors: Record<string, string>;
-  onInput: (key: "rbc" | "ureaNitrogen" | "albumin" | "ldh" | "metamyelocytes" | "cholesterol" | "hba1c" | "glucose") => (e: React.ChangeEvent<HTMLInputElement>) => void;
+  onInput: (key: "ureaNitrogen" | "glucose" | "whiteBloodCells" | "neutrophils" | "monocytes" | "mch" | "calciumTotal" | "lymphocytes" | "creatinine" | "sodium" | "pt") => (e: React.ChangeEvent<HTMLInputElement>) => void;
 }
 
 export function LaboratoryStep({ form, errors, onInput }: LaboratoryStepProps) {
   return (
     <>
       <PillNumberInput
-        label="Red Blood Cells (m/uL)"
-        placeholder="Ex: 4.5"
-        step={0.01}
-        min={0}
-        required
-        value={form.rbc}
-        onChange={onInput("rbc")}
-        error={errors.rbc}
-      />
-      <PillNumberInput
         label="Urea Nitrogen (mg/dL)"
         placeholder="Ex: 14"
-        step={0.1}
+        step={1}
         min={0}
         required
+        integerOnly
         value={form.ureaNitrogen}
         onChange={onInput("ureaNitrogen")}
         error={errors.ureaNitrogen}
-      />
-      <PillNumberInput
-        label="Albumin (g/dL)"
-        placeholder="Ex: 4.1"
-        step={0.01}
-        min={0}
-        required
-        value={form.albumin}
-        onChange={onInput("albumin")}
-        error={errors.albumin}
-      />
-      <PillNumberInput
-        label="Lactate Dehydrogenase (IU/L)"
-        placeholder="Ex: 180"
-        step={1}
-        min={0}
-        required
-        value={form.ldh}
-        onChange={onInput("ldh")}
-        error={errors.ldh}
-      />
-      <PillNumberInput
-        label="Metamyelocytes (%)"
-        placeholder="Ex: 2.5"
-        step={0.1}
-        min={0}
-        required
-        value={form.metamyelocytes}
-        onChange={onInput("metamyelocytes")}
-        error={errors.metamyelocytes}
-      />
-      <PillNumberInput
-        label="Cholesterol (Total, mg/dL)"
-        placeholder="Ex: 190"
-        step={1}
-        min={0}
-        required
-        value={form.cholesterol}
-        onChange={onInput("cholesterol")}
-        error={errors.cholesterol}
-      />
-      <PillNumberInput
-        label="Hemoglobin A1c (%)"
-        placeholder="Ex: 5.6"
-        step={0.1}
-        min={0}
-        required
-        value={form.hba1c}
-        onChange={onInput("hba1c")}
-        error={errors.hba1c}
       />
       <PillNumberInput
         label="Glucose (mg/dL)"
@@ -97,9 +41,101 @@ export function LaboratoryStep({ form, errors, onInput }: LaboratoryStepProps) {
         step={1}
         min={0}
         required
+        integerOnly
         value={form.glucose}
         onChange={onInput("glucose")}
         error={errors.glucose}
+      />
+      <PillNumberInput
+        label="White Blood Cells (K/uL)"
+        placeholder="Ex: 7.2"
+        step={0.1}
+        min={0}
+        required
+        value={form.whiteBloodCells}
+        onChange={onInput("whiteBloodCells")}
+        error={errors.whiteBloodCells}
+      />
+      <PillNumberInput
+        label="Neutrophils (%)"
+        placeholder="Ex: 65.5"
+        step={0.1}
+        min={0}
+        required
+        value={form.neutrophils}
+        onChange={onInput("neutrophils")}
+        error={errors.neutrophils}
+      />
+      <PillNumberInput
+        label="Monocytes (%)"
+        placeholder="Ex: 8.2"
+        step={0.1}
+        min={0}
+        required
+        value={form.monocytes}
+        onChange={onInput("monocytes")}
+        error={errors.monocytes}
+      />
+      <PillNumberInput
+        label="MCH (pg)"
+        placeholder="Ex: 28.5"
+        step={0.1}
+        min={0}
+        required
+        value={form.mch}
+        onChange={onInput("mch")}
+        error={errors.mch}
+      />
+      <PillNumberInput
+        label="Calcium, Total (mg/dL)"
+        placeholder="Ex: 9.8"
+        step={0.1}
+        min={0}
+        required
+        value={form.calciumTotal}
+        onChange={onInput("calciumTotal")}
+        error={errors.calciumTotal}
+      />
+      <PillNumberInput
+        label="Lymphocytes (%)"
+        placeholder="Ex: 25.3"
+        step={0.1}
+        min={0}
+        required
+        value={form.lymphocytes}
+        onChange={onInput("lymphocytes")}
+        error={errors.lymphocytes}
+      />
+      <PillNumberInput
+        label="Creatinine (mg/dL)"
+        placeholder="Ex: 1.1"
+        step={0.01}
+        min={0}
+        required
+        value={form.creatinine}
+        onChange={onInput("creatinine")}
+        error={errors.creatinine}
+      />
+      <PillNumberInput
+        label="Sodium (mEq/L)"
+        placeholder="Ex: 140"
+        step={1}
+        min={0}
+        required
+        integerOnly
+        value={form.sodium}
+        onChange={onInput("sodium")}
+        error={errors.sodium}
+      />
+      <PillNumberInput
+        label="PT (seconds)"
+        placeholder="Ex: 12.5"
+        step={0.1}
+        min={0}
+        required
+        value={form.pt}
+        onChange={onInput("pt")}
+        error={errors.pt}
       />
     </>
   );

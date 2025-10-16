@@ -25,6 +25,7 @@ export function DemographicStep({ form, errors, onInput, onToggle }: Demographic
         step={1}
         min={0}
         required
+        integerOnly
         value={form.age}
         onChange={onInput("age")}
         error={errors.age}
@@ -53,6 +54,7 @@ export function DemographicStep({ form, errors, onInput, onToggle }: Demographic
         step={1}
         min={0}
         required
+        integerOnly
         value={form.diastolic}
         onChange={onInput("diastolic")}
         error={errors.diastolic}
@@ -63,6 +65,7 @@ export function DemographicStep({ form, errors, onInput, onToggle }: Demographic
         step={1}
         min={0}
         required
+        integerOnly
         value={form.systolic}
         onChange={onInput("systolic")}
         error={errors.systolic}

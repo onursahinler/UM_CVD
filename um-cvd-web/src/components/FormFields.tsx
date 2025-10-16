@@ -32,7 +32,7 @@ export function PillInput({ label, helper, error, required, ...rest }: InputProp
 }
 
 // Number input (controlled) without custom controls
-export function PillNumberInput({ label, helper, error, required, step = 1, min, max, onChange, value, ...rest }: InputProps & { step?: number }) {
+export function PillNumberInput({ label, helper, error, required, step = 1, min, max, onChange, value, integerOnly = false, ...rest }: InputProps & { step?: number; integerOnly?: boolean }) {
   const [localError, setLocalError] = React.useState<string>("");
   const border = error || localError ? "border-red-500" : "border-black/10";
   const effectiveMin = typeof min === "number" ? min : 0; // default no negatives
@@ -44,6 +44,12 @@ export function PillNumberInput({ label, helper, error, required, step = 1, min,
     // Clear local error when user starts typing
     if (localError) {
       setLocalError("");
+    }
+    
+    // Check for integer-only constraint
+    if (integerOnly && inputValue !== "" && !isNaN(numValue) && !Number.isInteger(numValue)) {
+      setLocalError("Please enter a whole number");
+      return; // Don't update the value
     }
     
     // Check for negative values

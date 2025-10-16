@@ -11,14 +11,17 @@ export interface PatientForm {
   gender: number;
   
   // Laboratory
-  rbc: string;
   ureaNitrogen: string;
-  albumin: string;
-  ldh: string;
-  metamyelocytes: string;
-  cholesterol: string;
-  hba1c: string;
   glucose: string;
+  whiteBloodCells: string;
+  neutrophils: string;
+  monocytes: string;
+  mch: string;
+  calciumTotal: string;
+  lymphocytes: string;
+  creatinine: string;
+  sodium: string;
+  pt: string;
   
   // Treatment
   tkiType: string;
@@ -46,14 +49,17 @@ export interface UploadedData {
   bmi?: number;
   diastolic?: number;
   systolic?: number;
-  rbc?: number;
   ureaNitrogen?: number;
-  albumin?: number;
-  ldh?: number;
-  metamyelocytes?: number;
-  cholesterol?: number;
-  hba1c?: number;
   glucose?: number;
+  whiteBloodCells?: number;
+  neutrophils?: number;
+  monocytes?: number;
+  mch?: number;
+  calciumTotal?: number;
+  lymphocytes?: number;
+  creatinine?: number;
+  sodium?: number;
+  pt?: number;
   tkiType?: string;
   tkiDose?: number;
 }

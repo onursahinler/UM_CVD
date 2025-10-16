@@ -8,21 +8,39 @@ export const validateStep = (activeIndex: number, form: PatientForm): FormErrors
       if (!form.patientName) errors.patientName = "This field is required";
       if (!form.patientId) errors.patientId = "Please generate a patient ID";
       if (!form.age) errors.age = "This field is required";
+      if (form.age && (isNaN(parseFloat(form.age)) || !Number.isInteger(parseFloat(form.age)))) {
+        errors.age = "Please enter a valid whole number";
+      }
       if (!form.bmi) errors.bmi = "This field is required";
       if (!form.diastolic) errors.diastolic = "This field is required";
+      if (form.diastolic && (isNaN(parseFloat(form.diastolic)) || !Number.isInteger(parseFloat(form.diastolic)))) {
+        errors.diastolic = "Please enter a valid whole number";
+      }
       if (!form.systolic) errors.systolic = "This field is required";
+      if (form.systolic && (isNaN(parseFloat(form.systolic)) || !Number.isInteger(parseFloat(form.systolic)))) {
+        errors.systolic = "Please enter a valid whole number";
+      }
       if (form.gender === undefined || form.gender === null) errors.gender = "Please select an option";
       break;
     
     case 1:
-      if (!form.rbc) errors.rbc = "This field is required";
       if (!form.ureaNitrogen) errors.ureaNitrogen = "This field is required";
-      if (!form.albumin) errors.albumin = "This field is required";
-      if (!form.ldh) errors.ldh = "This field is required";
-      if (!form.metamyelocytes) errors.metamyelocytes = "This field is required";
-      if (!form.cholesterol) errors.cholesterol = "This field is required";
-      if (!form.hba1c) errors.hba1c = "This field is required";
+      if (form.ureaNitrogen && (isNaN(parseFloat(form.ureaNitrogen)) || !Number.isInteger(parseFloat(form.ureaNitrogen)))) {
+        errors.ureaNitrogen = "Please enter a valid whole number";
+      }
       if (!form.glucose) errors.glucose = "This field is required";
+      if (form.glucose && (isNaN(parseFloat(form.glucose)) || !Number.isInteger(parseFloat(form.glucose)))) {
+        errors.glucose = "Please enter a valid whole number";
+      }
+      if (!form.whiteBloodCells) errors.whiteBloodCells = "This field is required";
+      if (!form.neutrophils) errors.neutrophils = "This field is required";
+      if (!form.monocytes) errors.monocytes = "This field is required";
+      if (!form.mch) errors.mch = "This field is required";
+      if (!form.calciumTotal) errors.calciumTotal = "This field is required";
+      if (!form.lymphocytes) errors.lymphocytes = "This field is required";
+      if (!form.creatinine) errors.creatinine = "This field is required";
+      if (!form.sodium) errors.sodium = "This field is required";
+      if (!form.pt) errors.pt = "This field is required";
       break;
     
     case 2:
