@@ -24,6 +24,7 @@ export function TreatmentStep({ form, errors, onToggle, onInput, onTkiTypeChange
         onChange={onTkiTypeChange}
         error={errors.tkiType}
         options={[
+          { value: "none", label: "None" },
           { value: "imatinib", label: "Imatinib" },
           { value: "dasatinib", label: "Dasatinib" },
           { value: "nilotinib", label: "Nilotinib" },
@@ -36,8 +37,9 @@ export function TreatmentStep({ form, errors, onToggle, onInput, onTkiTypeChange
         placeholder="Ex: 400"
         step={1}
         min={0}
-        required
-        value={form.tkiDose}
+        required={form.tkiType !== "none"}
+        disabled={form.tkiType === "none"}
+        value={form.tkiType === "none" ? "" : form.tkiDose}
         onChange={onInput("tkiDose")}
         error={errors.tkiDose}
       />

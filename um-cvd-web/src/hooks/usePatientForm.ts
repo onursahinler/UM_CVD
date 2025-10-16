@@ -86,8 +86,17 @@ export const usePatientForm = () => {
   }, [clearError]);
 
   const handleTkiTypeChange = useCallback((value: string) => {
-    setForm((f) => ({ ...f, tkiType: value }));
+    setForm((f) => ({ 
+      ...f, 
+      tkiType: value,
+      // Clear dose when "none" is selected
+      tkiDose: value === "none" ? "" : f.tkiDose
+    }));
     clearError("tkiType", !!value);
+    // Clear dose error when "none" is selected
+    if (value === "none") {
+      clearError("tkiDose", true);
+    }
   }, [clearError]);
 
   const handleGenerateId = useCallback(() => {

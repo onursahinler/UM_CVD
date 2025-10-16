@@ -45,7 +45,9 @@ export const validateStep = (activeIndex: number, form: PatientForm): FormErrors
     
     case 2:
       if (!form.tkiType) errors.tkiType = "Please select TKI type";
-      if (!form.tkiDose) errors.tkiDose = "This field is required";
+      if (form.tkiType && form.tkiType !== "none" && !form.tkiDose) {
+        errors.tkiDose = "This field is required";
+      }
       break;
     
     case 3:
