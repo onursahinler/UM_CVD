@@ -93,9 +93,9 @@ export function PillNumberInput({ label, helper, error, required, step = 1, min,
 
 type ToggleProps = {
   label: string;
-  options: { value: string; label: string }[];
-  value?: string;
-  onChange?: (value: string) => void;
+  options: { value: string | number; label: string }[];
+  value?: string | number;
+  onChange?: (value: string | number) => void;
   error?: string;
   required?: boolean;
 };
@@ -103,7 +103,7 @@ type ToggleProps = {
 export function PillToggle({ label, options, value, onChange, error, required }: ToggleProps) {
   const selected = value;
 
-  const handleClick = (val: string) => {
+  const handleClick = (val: string | number) => {
     onChange?.(val);
   };
 

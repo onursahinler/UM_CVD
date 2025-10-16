@@ -16,7 +16,7 @@ interface AssessmentFormProps {
   errors: FormErrors;
   isIdGenerated: boolean;
   onInput: (key: keyof PatientForm) => (e: React.ChangeEvent<HTMLInputElement>) => void;
-  onToggle: (key: keyof PatientForm) => (val: string) => void;
+  onToggle: (key: keyof PatientForm) => (val: string | number) => void;
   onGenerateId: () => void;
   onModelSelect: (modelId: string) => void;
   onTkiTypeChange: (value: string) => void;

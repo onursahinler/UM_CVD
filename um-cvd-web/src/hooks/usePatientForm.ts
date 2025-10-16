@@ -13,7 +13,7 @@ const initialFormState: PatientForm = {
   bmi: "",
   diastolic: "",
   systolic: "",
-  gender: "",
+  gender: 0,
   
   // Laboratory
   rbc: "",
@@ -72,7 +72,7 @@ export const usePatientForm = () => {
       clearError(key, val !== "");
     }, [clearError]);
 
-  const handleToggle = useCallback((key: keyof PatientForm) => (val: string) => {
+  const handleToggle = useCallback((key: keyof PatientForm) => (val: string | number) => {
     setForm((f) => ({ ...f, [key]: val }));
     clearError(key, !!val);
   }, [clearError]);
@@ -109,7 +109,7 @@ export const usePatientForm = () => {
       patientName: data.patientName || "",
       patientId: data.patientId || "",
       age: data.age?.toString() || "",
-      gender: data.gender || "",
+      gender: data.gender ?? 0,
       bmi: data.bmi?.toString() || "",
       diastolic: data.diastolic?.toString() || "",
       systolic: data.systolic?.toString() || "",

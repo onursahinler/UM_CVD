@@ -14,7 +14,7 @@ export function SummaryStep({ form }: SummaryStepProps) {
       patientName: form.patientName || "",
       patientId: form.patientId || "",
       age: form.age ? parseFloat(form.age) : null,
-      gender: form.gender || "",
+      gender: form.gender === 0 ? "Male" : form.gender === 1 ? "Female" : "",
       bmi: form.bmi ? parseFloat(form.bmi) : null,
       diastolic: form.diastolic ? parseFloat(form.diastolic) : null,
       systolic: form.systolic ? parseFloat(form.systolic) : null,
@@ -56,7 +56,7 @@ export function SummaryStep({ form }: SummaryStepProps) {
       title: "Demographics & Health",
       fields: [
         { k: "age", label: "Age" },
-        { k: "gender", label: "Gender" },
+        { k: "gender", label: "Gender", transform: (val: string | number) => val === 0 ? "Male" : val === 1 ? "Female" : "-" },
         { k: "bmi", label: "BMI (kg/m²)" },
         { k: "diastolic", label: "Diastolic (mmHg)" },
         { k: "systolic", label: "Systolic (mmHg)" },
@@ -115,7 +115,7 @@ export function SummaryStep({ form }: SummaryStepProps) {
               <div key={field.k} className="bg-white rounded-xl p-3 border border-black/10">
                 <div className="text-xs text-gray-600 font-medium">{field.label}</div>
                 <div className="mt-1 text-sm font-semibold text-black">
-                  {field.transform ? field.transform(form[field.k as keyof PatientForm]) : (form[field.k as keyof PatientForm] as string) || "-"}
+                  {field.transform ? field.transform(form[field.k as keyof PatientForm] as any) : String(form[field.k as keyof PatientForm] || "-")}
                 </div>
               </div>
             ))}

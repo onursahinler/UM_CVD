@@ -77,7 +77,7 @@ export function FileUploadStep({ onFileUpload, uploadedData }: FileUploadStepPro
   "patientName": "John Doe",
   "patientId": "CVD-123456",
   "age": 65,
-  "gender": "male",
+  "gender": 0,
   "bmi": 24.7,
   "diastolic": 80,
   "systolic": 120,

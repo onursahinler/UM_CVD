@@ -14,7 +14,7 @@ interface Feature {
 }
 
 interface CMLRiskAnalysisProps {
-  form: Record<string, string>;
+  form: Record<string, string | number>;
 }
 
 export function CMLRiskAnalysis({ form }: CMLRiskAnalysisProps) {
@@ -516,7 +516,7 @@ export function CMLRiskAnalysis({ form }: CMLRiskAnalysisProps) {
                         </div>
                         <div>
                           <div className="text-xs text-white/50">Gender</div>
-                          <div className="text-sm font-semibold text-white">{form.gender || "N/A"}</div>
+                          <div className="text-sm font-semibold text-white">{form.gender === 0 ? "Male" : form.gender === 1 ? "Female" : "N/A"}</div>
                         </div>
                         <div>
                           <div className="text-xs text-white/50">BMI</div>

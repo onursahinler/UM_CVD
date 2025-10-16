@@ -8,7 +8,7 @@ export interface PatientForm {
   bmi: string;
   diastolic: string;
   systolic: string;
-  gender: string;
+  gender: number;
   
   // Laboratory
   rbc: string;
@@ -42,7 +42,7 @@ export interface UploadedData {
   patientName?: string;
   patientId?: string;
   age?: number;
-  gender?: string;
+  gender?: number;
   bmi?: number;
   diastolic?: number;
   systolic?: number;

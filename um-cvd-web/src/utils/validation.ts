@@ -11,7 +11,7 @@ export const validateStep = (activeIndex: number, form: PatientForm): FormErrors
       if (!form.bmi) errors.bmi = "This field is required";
       if (!form.diastolic) errors.diastolic = "This field is required";
       if (!form.systolic) errors.systolic = "This field is required";
-      if (!form.gender) errors.gender = "Please select an option";
+      if (form.gender === undefined || form.gender === null) errors.gender = "Please select an option";
       break;
     
     case 1:

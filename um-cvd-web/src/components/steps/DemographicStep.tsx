@@ -9,11 +9,11 @@ interface DemographicStepProps {
     bmi: string;
     diastolic: string;
     systolic: string;
-    gender: string;
+    gender: number;
   };
   errors: Record<string, string>;
   onInput: (key: "age" | "bmi" | "diastolic" | "systolic") => (e: React.ChangeEvent<HTMLInputElement>) => void;
-  onToggle: (key: "gender") => (val: string) => void;
+  onToggle: (key: "gender") => (val: string | number) => void;
 }
 
 export function DemographicStep({ form, errors, onInput, onToggle }: DemographicStepProps) {
@@ -32,7 +32,7 @@ export function DemographicStep({ form, errors, onInput, onToggle }: Demographic
       <PillToggle
         label="Gender"
         required
-        options={[{ value: "male", label: "Male" }, { value: "female", label: "Female" }]}
+        options={[{ value: 0, label: "Male" }, { value: 1, label: "Female" }]}
         value={form.gender}
         onChange={onToggle("gender")}
         error={errors.gender}
