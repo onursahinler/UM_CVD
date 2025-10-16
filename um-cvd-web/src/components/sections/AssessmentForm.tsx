@@ -19,7 +19,7 @@ interface AssessmentFormProps {
   onToggle: (key: keyof PatientForm) => (val: string | number) => void;
   onGenerateId: () => void;
   onModelSelect: (modelId: string) => void;
-  onTkiTypeChange: (value: string) => void;
+  onTkiTypeChange: (value: string | number) => void;
   onComplete: () => void;
   validate: (activeIndex: number) => boolean;
 }

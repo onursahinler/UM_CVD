@@ -11,7 +11,7 @@ interface TreatmentStepProps {
   errors: Record<string, string>;
   onToggle: (key: "tkiType") => (val: string) => void;
   onInput: (key: "tkiDose") => (e: React.ChangeEvent<HTMLInputElement>) => void;
-  onTkiTypeChange: (val: string) => void;
+  onTkiTypeChange: (val: string | number) => void;
 }
 
 export function TreatmentStep({ form, errors, onToggle, onInput, onTkiTypeChange }: TreatmentStepProps) {
@@ -24,10 +24,11 @@ export function TreatmentStep({ form, errors, onToggle, onInput, onTkiTypeChange
         onChange={onTkiTypeChange}
         error={errors.tkiType}
         options={[
-          { value: "none", label: "None" },
           { value: "imatinib", label: "Imatinib" },
           { value: "dasatinib", label: "Dasatinib" },
           { value: "nilotinib", label: "Nilotinib" },
+          { value: "ponatinib", label: "Ponatinib" },
+          { value: "ruxolitinib", label: "Ruxolitinib" },
         ]}
       />
       <PillNumberInput
