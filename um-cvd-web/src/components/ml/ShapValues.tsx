@@ -59,9 +59,9 @@ export const ShapValues: React.FC<ShapValuesProps> = ({
   };
 
   return (
-    <div className={`p-6 rounded-lg border ${className}`}>
-      <h3 className="text-xl font-bold mb-4">SHAP Values</h3>
-      <p className="text-gray-600 mb-6">
+    <div className={`p-6 rounded-lg border bg-white ${className}`}>
+      <h3 className="text-xl font-bold mb-4 text-gray-900">SHAP Values</h3>
+      <p className="text-gray-700 mb-6">
         Feature contributions to the prediction. Positive values increase CVD risk, negative values decrease it.
       </p>
       
@@ -69,7 +69,7 @@ export const ShapValues: React.FC<ShapValuesProps> = ({
         {sortedFeatures.map(([feature, value], index) => (
           <div key={feature} className="flex items-center justify-between">
             <div className="flex items-center space-x-3 flex-1">
-              <div className="text-sm font-medium text-gray-500 w-6">
+              <div className="text-sm font-medium text-gray-600 w-6">
                 #{index + 1}
               </div>
               <div className="flex-1">
@@ -96,7 +96,7 @@ export const ShapValues: React.FC<ShapValuesProps> = ({
       </div>
       
       <div className="mt-6 p-4 bg-gray-50 rounded-lg">
-        <div className="flex items-center space-x-4 text-sm">
+        <div className="flex items-center space-x-4 text-sm text-gray-700">
           <div className="flex items-center space-x-2">
             <div className="w-3 h-3 bg-red-500 rounded"></div>
             <span>Increases CVD Risk</span>

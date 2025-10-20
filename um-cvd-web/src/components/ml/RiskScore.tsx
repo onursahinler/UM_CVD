@@ -31,7 +31,7 @@ export const RiskScore: React.FC<RiskScoreProps> = ({
   return (
     <div className={`p-6 rounded-lg border-2 ${riskInfo.bgColor} ${className}`}>
       <div className="text-center">
-        <h3 className="text-2xl font-bold mb-4">CVD Risk Assessment</h3>
+        <h3 className="text-2xl font-bold mb-4 text-gray-900">CVD Risk Assessment</h3>
         
         <div className="mb-6">
           <div className="text-6xl font-bold mb-2">
@@ -40,7 +40,7 @@ export const RiskScore: React.FC<RiskScoreProps> = ({
           <div className={`text-xl font-semibold ${riskInfo.color} mb-2`}>
             {riskInfo.level} Risk
           </div>
-          <div className="text-gray-600">
+          <div className="text-gray-700">
             {getRiskDescription(riskScore)}
           </div>
         </div>
@@ -55,7 +55,7 @@ export const RiskScore: React.FC<RiskScoreProps> = ({
           />
         </div>
 
-        <div className="text-sm text-gray-500">
+        <div className="text-sm text-gray-600">
           Prediction: {prediction === 1 ? "CVD Risk Detected" : "No CVD Risk"}
         </div>
       </div>

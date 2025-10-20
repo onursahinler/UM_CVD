@@ -47,15 +47,15 @@ export const FeatureImportance: React.FC<FeatureImportanceProps> = ({
   };
 
   return (
-    <div className={`p-6 rounded-lg border ${className}`}>
-      <h3 className="text-xl font-bold mb-4">Feature Importance</h3>
-      <p className="text-gray-600 mb-6">Top features contributing to the CVD risk prediction</p>
+    <div className={`p-6 rounded-lg border bg-white ${className}`}>
+      <h3 className="text-xl font-bold mb-4 text-gray-900">Feature Importance</h3>
+      <p className="text-gray-700 mb-6">Top features contributing to the CVD risk prediction</p>
       
       <div className="space-y-3">
         {sortedFeatures.map(([feature, importance], index) => (
           <div key={feature} className="flex items-center justify-between">
             <div className="flex items-center space-x-3 flex-1">
-              <div className="text-sm font-medium text-gray-500 w-6">
+              <div className="text-sm font-medium text-gray-600 w-6">
                 #{index + 1}
               </div>
               <div className="flex-1">
