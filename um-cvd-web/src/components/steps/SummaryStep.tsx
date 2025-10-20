@@ -8,7 +8,6 @@ interface SummaryStepProps {
 }
 
 export function SummaryStep({ form }: SummaryStepProps) {
-
   const downloadJSON = () => {
     // Build array with single object in the requested schema
     const exportObj = {
@@ -97,7 +96,6 @@ export function SummaryStep({ form }: SummaryStepProps) {
     }
   ];
 
-
   return (
     <div className="col-span-2 space-y-6">
       {/* Header with Download Button */}
@@ -131,7 +129,6 @@ export function SummaryStep({ form }: SummaryStepProps) {
           </div>
         </div>
       ))}
-
     </div>
   );
 }
