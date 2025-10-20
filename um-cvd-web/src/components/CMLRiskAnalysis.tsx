@@ -2,6 +2,9 @@
 
 import React, { useState, useMemo, useEffect } from "react";
 import ShapForceBar from "./ShapForceBar";
+import { RiskScore } from "./ml/RiskScore";
+import { FeatureImportance } from "./ml/FeatureImportance";
+import { ShapValues } from "./ml/ShapValues";
 
 interface Feature {
   label: string;
@@ -13,6 +16,19 @@ interface Feature {
   init: number;
 }
 
+interface PredictionResult {
+  prediction: number;
+  probability: {
+    no_cvd: number;
+    cvd: number;
+  };
+  risk_score: number;
+  feature_importance: Record<string, number>;
+  shap_values: Record<string, number>;
+  feature_names: string[];
+  feature_categories?: Record<string, string[]>;
+}
+
 interface CMLRiskAnalysisProps {
   form: Record<string, string | number>;
 }
@@ -20,6 +36,43 @@ interface CMLRiskAnalysisProps {
 export function CMLRiskAnalysis({ form }: CMLRiskAnalysisProps) {
   // Determine if we should show explainer based on model selection
   const showExplainer = form.model === "lr_explain";
+  
+  // ML Model Results State
+  const [mlResults, setMlResults] = useState<PredictionResult | null>(null);
+  const [mlLoading, setMlLoading] = useState(true);
+  const [mlError, setMlError] = useState<string | null>(null);
+  
+  // Load ML results on component mount
+  useEffect(() => {
+    const loadMLResults = async () => {
+      try {
+        setMlLoading(true);
+        setMlError(null);
+
+        const response = await fetch('/api/predict', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(form),
+        });
+
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const result = await response.json();
+        setMlResults(result);
+      } catch (err) {
+        console.error('ML prediction error:', err);
+        setMlError(err instanceof Error ? err.message : 'Failed to get prediction');
+      } finally {
+        setMlLoading(false);
+      }
+    };
+
+    loadMLResults();
+  }, [form]);
   
   // Features from the photo - fixed values for demonstration
   const features: Record<string, Feature> = {
@@ -386,9 +439,11 @@ export function CMLRiskAnalysis({ form }: CMLRiskAnalysisProps) {
 
   // Simple prediction view for "Only Prediction" model
   if (!showExplainer) {
-    const riskLevel = prediction > 1200 ? 'High' : prediction > 800 ? 'Moderate' : 'Low';
-    const riskColor = prediction > 1200 ? 'red' : prediction > 800 ? 'yellow' : 'green';
-    const confidence = 94.2; // Fixed confidence for demo
+    // Use ML results if available, otherwise fallback to demo values
+    const riskScore = mlResults?.risk_score || (prediction / 1000); // Convert demo prediction to 0-1 scale
+    const riskLevel = riskScore > 0.7 ? 'High' : riskScore > 0.3 ? 'Moderate' : 'Low';
+    const riskColor = riskScore > 0.7 ? 'red' : riskScore > 0.3 ? 'yellow' : 'green';
+    const confidence = mlResults ? Math.round(Math.max(mlResults.probability.cvd, mlResults.probability.no_cvd) * 100) : 94.2;
     
     return (
       <div className="min-h-screen w-full flex flex-col">
@@ -430,11 +485,11 @@ export function CMLRiskAnalysis({ form }: CMLRiskAnalysisProps) {
                     <div className={`inline-flex items-center justify-center rounded-full font-bold text-white mb-4 ${
                       riskColor === 'red' ? 'bg-red-500' : riskColor === 'yellow' ? 'bg-yellow-500' : 'bg-green-500'
                     }`} style={{
-                      width: `${Math.max(80, Math.min(120, 60 + prediction.toString().length * 8))}px`,
-                      height: `${Math.max(80, Math.min(120, 60 + prediction.toString().length * 8))}px`,
-                      fontSize: `${Math.max(24, Math.min(48, 48 - prediction.toString().length * 2))}px`
+                      width: `${Math.max(80, Math.min(120, 60 + (riskScore * 100).toString().length * 8))}px`,
+                      height: `${Math.max(80, Math.min(120, 60 + (riskScore * 100).toString().length * 8))}px`,
+                      fontSize: `${Math.max(24, Math.min(48, 48 - (riskScore * 100).toString().length * 2))}px`
                     }}>
-                      {prediction.toFixed(0)}
+                      {Math.round(riskScore * 100)}%
                     </div>
                     <h2 className="font-display text-2xl text-white mb-2">Risk Score</h2>
                     <div className={`inline-flex items-center px-4 py-2 rounded-full text-sm font-semibold ${
@@ -627,6 +682,69 @@ export function CMLRiskAnalysis({ form }: CMLRiskAnalysisProps) {
   }
 
   // Full explainer view for "With Explainer" model
+  if (mlLoading) {
+    return (
+      <div className="min-h-screen w-full flex flex-col">
+        <header className="grad-hero text-white">
+          <div className="mx-auto max-w-7xl px-6 py-10">
+            <div className="flex flex-col gap-6 sm:gap-8">
+              <h1 className="font-display text-5xl sm:text-7xl leading-tight tracking-wide">
+                AI Analysis
+                <br />
+                In Progress
+              </h1>
+              <p className="max-w-3xl text-white/90 text-sm sm:text-base">
+                Our advanced machine learning models are processing your cardiovascular risk data 
+                using state-of-the-art SHAP explainability techniques.
+              </p>
+            </div>
+          </div>
+        </header>
+
+        <main className="mx-auto max-w-7xl px-6 py-8 flex-1">
+          <div className="bg-panel rounded-2xl p-8 shadow-sm text-center">
+            <div className="text-6xl mb-4">🧠</div>
+            <h2 className="font-display text-3xl mb-4 text-white">Processing Patient Data</h2>
+            <p className="text-white/90 mb-6">
+              Analyzing clinical parameters to generate personalized risk insights...
+            </p>
+            
+            <div className="w-full bg-gray-200 rounded-full h-3 mb-6">
+              <div 
+                className="bg-gradient-to-r from-brand-500 to-blue-500 h-3 rounded-full transition-all duration-500 ease-out animate-pulse" 
+                style={{width: '100%'}}
+              ></div>
+            </div>
+            
+            <div className="inline-flex items-center gap-2 bg-brand-50 text-brand-700 px-4 py-2 rounded-pill text-sm font-medium">
+              <div className="w-2 h-2 bg-brand-600 rounded-full animate-pulse"></div>
+              Running SHAP analysis...
+            </div>
+          </div>
+        </main>
+      </div>
+    );
+  }
+
+  if (mlError) {
+    return (
+      <div className="min-h-screen w-full flex flex-col">
+        <header className="grad-hero text-white">
+          <div className="mx-auto max-w-7xl px-6 py-10">
+            <div className="flex flex-col gap-6 sm:gap-8">
+              <h1 className="font-display text-5xl sm:text-7xl leading-tight tracking-wide">
+                Analysis Error
+              </h1>
+              <p className="max-w-3xl text-white/90 text-sm sm:text-base">
+                {mlError}
+              </p>
+            </div>
+          </div>
+        </header>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen w-full flex flex-col">
       <header className="grad-hero text-white">
@@ -638,19 +756,71 @@ export function CMLRiskAnalysis({ form }: CMLRiskAnalysisProps) {
               Explainer Bar
             </h1>
             <p className="max-w-3xl text-white/90 text-sm sm:text-base">
-              Tweak the feature values on the left. The SHAP-style force bar and the prediction update instantly.
+              AI-powered CVD risk analysis with detailed feature explanations and interactive visualizations.
             </p>
           </div>
         </div>
       </header>
 
       <main className="flex-1">
-        {/* SHAP Force Bar - Interactive Plotly Version */}
-        <ShapForceBar className="w-full" />
+        <div className="mx-auto max-w-7xl px-6 py-8">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            {/* Risk Score */}
+            <div className="lg:col-span-1">
+              {mlResults && (
+                <RiskScore
+                  riskScore={mlResults.risk_score}
+                  prediction={mlResults.prediction}
+                  className="mb-6"
+                />
+              )}
+            </div>
 
+            {/* Feature Importance */}
+            <div className="lg:col-span-1">
+              {mlResults && (
+                <FeatureImportance
+                  featureImportance={mlResults.feature_importance}
+                  featureCategories={mlResults.feature_categories}
+                  className="mb-6"
+                />
+              )}
+            </div>
+
+            {/* SHAP Values */}
+            <div className="lg:col-span-2">
+              {mlResults && (
+                <ShapValues
+                  shapValues={mlResults.shap_values}
+                  featureCategories={mlResults.feature_categories}
+                />
+              )}
+            </div>
+          </div>
+
+          {/* Action Buttons */}
+          <div className="flex justify-center gap-4 mt-12">
+            <button
+              onClick={() => window.print()}
+              className="inline-flex items-center gap-2 bg-brand-600 hover:bg-brand-700 text-white px-6 py-3 rounded-pill font-semibold transition"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+              </svg>
+              Print Report
+            </button>
+            <button
+              onClick={() => window.location.href = '/'}
+              className="inline-flex items-center gap-2 bg-white/10 hover:bg-white/20 text-white px-6 py-3 rounded-pill font-semibold transition backdrop-blur-sm border border-white/20"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+              </svg>
+              Back to Home
+            </button>
+          </div>
+        </div>
       </main>
-
-      
     </div>
   );
 }
