@@ -11,6 +11,8 @@ export function SummaryStep({ form }: SummaryStepProps) {
   const downloadJSON = () => {
     // Build array with single object in the requested schema
     const exportObj = {
+      "Full name": form.patientName || "",
+      "Patient ID": form.patientId || "",
       anchor_age: form.age ? parseFloat(form.age) : null,
       "White Blood Cells": form.whiteBloodCells ? parseFloat(form.whiteBloodCells) : null,
       "Urea Nitrogen": form.ureaNitrogen ? parseFloat(form.ureaNitrogen) : null,

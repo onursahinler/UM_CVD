@@ -52,6 +52,8 @@ export interface FormErrors {
 export interface UploadedData {
   patientName?: string;
   patientId?: string;
+  "Full name"?: string;
+  "Patient ID"?: string;
   age?: number;
   gender?: number;
   bmi?: number;

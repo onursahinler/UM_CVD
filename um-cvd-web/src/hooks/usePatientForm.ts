@@ -192,8 +192,8 @@ export const usePatientForm = () => {
 
       setForm(prev => ({
         ...prev,
-        patientName: prev.patientName || "",
-        patientId: prev.patientId || "",
+        patientName: payload["Full name"] || prev.patientName || "",
+        patientId: payload["Patient ID"] || prev.patientId || "",
         age: age != null ? String(age) : "",
         gender: typeof gender === 'number' ? gender : -1,
         bmi: payload.BMI != null ? String(payload.BMI) : "",
@@ -222,8 +222,8 @@ export const usePatientForm = () => {
     // Original flat schema support
     setForm(prev => ({
       ...prev,
-      patientName: data.patientName || "",
-      patientId: data.patientId || "",
+      patientName: data.patientName || data["Full name"] || "",
+      patientId: data.patientId || data["Patient ID"] || "",
       age: data.age?.toString() || "",
       gender: data.gender ?? -1,
       bmi: data.bmi?.toString() || "",
