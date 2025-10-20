@@ -1,15 +1,13 @@
 "use client";
 
-import React, { useState } from "react";
+import React from "react";
 import { PatientForm } from "@/types";
-import { MLResults } from "../ml/MLResults";
 
 interface SummaryStepProps {
   form: PatientForm;
 }
 
 export function SummaryStep({ form }: SummaryStepProps) {
-  const [showMLResults, setShowMLResults] = useState(false);
 
   const downloadJSON = () => {
     // Build array with single object in the requested schema
@@ -99,15 +97,6 @@ export function SummaryStep({ form }: SummaryStepProps) {
     }
   ];
 
-  // Show ML Results if requested
-  if (showMLResults) {
-    return (
-      <MLResults
-        formData={form}
-        onBack={() => setShowMLResults(false)}
-      />
-    );
-  }
 
   return (
     <div className="col-span-2 space-y-6">
@@ -143,29 +132,6 @@ export function SummaryStep({ form }: SummaryStepProps) {
         </div>
       ))}
 
-      {/* ML Analysis Section */}
-      <div className="mt-8 bg-panel rounded-2xl border border-black/10 p-6 shadow-sm">
-        <h3 className="text-lg font-semibold text-white mb-4 border-b border-white/20 pb-2">
-          Machine Learning Analysis
-        </h3>
-        <div className="bg-white rounded-xl p-6">
-          <div className="text-center">
-            <div className="text-4xl mb-4">🤖</div>
-            <h4 className="text-xl font-semibold text-gray-900 mb-2">
-              CVD Risk Prediction
-            </h4>
-            <p className="text-gray-600 mb-6">
-              Get AI-powered cardiovascular disease risk assessment with detailed explanations
-            </p>
-            <button
-              onClick={() => setShowMLResults(true)}
-              className="px-8 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-semibold"
-            >
-              Run ML Analysis
-            </button>
-          </div>
-        </div>
-      </div>
     </div>
   );
 }
