@@ -20,7 +20,7 @@ export const validateStep = (activeIndex: number, form: PatientForm): FormErrors
       if (form.systolic && (isNaN(parseFloat(form.systolic)) || !Number.isInteger(parseFloat(form.systolic)))) {
         errors.systolic = "Please enter a valid whole number";
       }
-      if (form.gender === undefined || form.gender === null) errors.gender = "Please select an option";
+      if (form.gender === undefined || form.gender === null || form.gender === -1) errors.gender = "Please select an option";
       break;
     
     case 1:

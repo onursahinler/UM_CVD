@@ -26,6 +26,14 @@ export interface PatientForm {
   // Treatment
   tkiType: string;
   tkiDose: string;
+  tkiDoses?: {
+    none: number;
+    imatinib: number;
+    dasatinib: number;
+    nilotinib: number;
+    ponatinib: number;
+    ruxolitinib: number;
+  };
   
   // Model
   model: string;

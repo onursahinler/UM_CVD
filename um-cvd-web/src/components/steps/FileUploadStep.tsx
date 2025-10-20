@@ -73,28 +73,31 @@ export function FileUploadStep({ onFileUpload, uploadedData }: FileUploadStepPro
             <div className="bg-gray-50 rounded-xl p-4 max-w-md mx-auto">
               <h4 className="font-semibold text-black mb-2">Expected JSON Format:</h4>
               <pre className="text-xs text-gray-600 text-left overflow-x-auto">
-{`{
-  "patientName": "John Doe",
-  "patientId": "CVD-123456",
-  "age": 65,
-  "gender": 0,
-  "bmi": 24.7,
-  "diastolic": 80,
-  "systolic": 120,
-  "ureaNitrogen": 14,
-  "glucose": 95,
-  "whiteBloodCells": 7.2,
-  "neutrophils": 65.5,
-  "monocytes": 8.2,
-  "mch": 28.5,
-  "calciumTotal": 9.8,
-  "lymphocytes": 25.3,
-  "creatinine": 1.1,
-  "sodium": 140,
-  "pt": 12.5,
-  "tkiType": "imatinib",
-  "tkiDose": 400
-}`}
+{`[
+  {
+    "anchor_age": 56.0,
+    "White Blood Cells": 85.1,
+    "Urea Nitrogen": 16.0,
+    "Neutrophils": 57.0,
+    "BMI": 39.1,
+    "Monocytes": 1.0,
+    "Glucose": 87.0,
+    "systolic": 148.0,
+    "MCH": 28.6,
+    "Calcium, Total": 8.5,
+    "Lymphocytes": 7.0,
+    "Creatinine": 1.2,
+    "Sodium": 140.0,
+    "diastolic": 81.0,
+    "PT": 12.6,
+    "imatinib_dose": 0.0,
+    "dasatinib_dose": 0.0,
+    "gender_encoded": 1.0,
+    "nilotinib_dose": 0.0,
+    "ponatinib_dose": 0.0,
+    "ruxolitinib_dose": 0.0
+  }
+]`}
               </pre>
             </div>
           </div>

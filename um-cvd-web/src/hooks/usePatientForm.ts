@@ -13,7 +13,7 @@ const initialFormState: PatientForm = {
   bmi: "",
   diastolic: "",
   systolic: "",
-  gender: 0,
+  gender: -1,
   
   // Laboratory
   ureaNitrogen: "",
@@ -31,6 +31,14 @@ const initialFormState: PatientForm = {
   // Treatment
   tkiType: "",
   tkiDose: "",
+  tkiDoses: {
+    none: 0,
+    imatinib: 0,
+    dasatinib: 0,
+    nilotinib: 0,
+    ponatinib: 0,
+    ruxolitinib: 0,
+  },
   
   // Model
   model: "",
@@ -71,7 +79,27 @@ export const usePatientForm = () => {
   const handleInput = useCallback((key: keyof PatientForm) =>
     (e: React.ChangeEvent<HTMLInputElement>) => {
       const val = e.currentTarget.value;
-      setForm((f) => ({ ...f, [key]: val }));
+      setForm((f) => {
+        // When updating tkiDose, also reflect it into tkiDoses mapping for the selected type
+        if (key === "tkiDose") {
+          const selected = f.tkiType as keyof NonNullable<PatientForm["tkiDoses"]>;
+          const doseNum = val ? parseFloat(val) : 0;
+          const nextMap = {
+            ...(f.tkiDoses || { none: 0, imatinib: 0, dasatinib: 0, nilotinib: 0, ponatinib: 0, ruxolitinib: 0 }),
+          } as NonNullable<PatientForm["tkiDoses"]>;
+          if (selected && selected !== "none") {
+            // Zero out others, set only the selected
+            Object.keys(nextMap).forEach((k) => {
+              nextMap[k as keyof typeof nextMap] = k === selected ? doseNum : 0;
+            });
+          } else {
+            // If none or no selection, keep all zeros
+            Object.keys(nextMap).forEach((k) => { nextMap[k as keyof typeof nextMap] = 0; });
+          }
+          return { ...f, [key]: val, tkiDoses: nextMap };
+        }
+        return { ...f, [key]: val };
+      });
       clearError(key, val !== "");
     }, [clearError]);
 
@@ -86,12 +114,25 @@ export const usePatientForm = () => {
   }, [clearError]);
 
   const handleTkiTypeChange = useCallback((value: string) => {
-    setForm((f) => ({ 
-      ...f, 
-      tkiType: value,
-      // Clear dose when "none" is selected
-      tkiDose: value === "none" ? "" : f.tkiDose
-    }));
+    setForm((f) => {
+      const doseNum = f.tkiDose ? parseFloat(f.tkiDose) : 0;
+      const nextMap = {
+        ...(f.tkiDoses || { none: 0, imatinib: 0, dasatinib: 0, nilotinib: 0, ponatinib: 0, ruxolitinib: 0 }),
+      } as NonNullable<PatientForm["tkiDoses"]>;
+      if (value === "none") {
+        Object.keys(nextMap).forEach((k) => { nextMap[k as keyof typeof nextMap] = 0; });
+      } else {
+        Object.keys(nextMap).forEach((k) => {
+          nextMap[k as keyof typeof nextMap] = k === value ? doseNum : 0;
+        });
+      }
+      return {
+        ...f,
+        tkiType: value,
+        tkiDose: value === "none" ? "" : f.tkiDose,
+        tkiDoses: nextMap,
+      };
+    });
     clearError("tkiType", !!value);
     // Clear dose error when "none" is selected
     if (value === "none") {
@@ -114,14 +155,77 @@ export const usePatientForm = () => {
     return Object.keys(nextErrors).length === 0;
   }, [form]);
 
-  const handleFileUpload = useCallback((data: UploadedData) => {
-    // Auto-fill form with uploaded data
+  const handleFileUpload = useCallback((raw: UploadedData | UploadedData[] | any) => {
+    // Support array schema like: [{ anchor_age: ..., "White Blood Cells": ..., imatinib_dose: ... }]
+    const payload = Array.isArray(raw) ? (raw[0] || {}) : raw;
+    const hasNewSchema =
+      payload && (
+        Object.prototype.hasOwnProperty.call(payload, 'anchor_age') ||
+        Object.prototype.hasOwnProperty.call(payload, 'imatinib_dose')
+      );
+
+    if (hasNewSchema) {
+      const age = payload.anchor_age;
+      const gender = payload.gender_encoded;
+      // Determine TKI type and dose from the doses
+      const tkiDoses = {
+        none: 0,
+        imatinib: Number(payload.imatinib_dose || 0),
+        dasatinib: Number(payload.dasatinib_dose || 0),
+        nilotinib: Number(payload.nilotinib_dose || 0),
+        ponatinib: Number(payload.ponatinib_dose || 0),
+        ruxolitinib: Number(payload.ruxolitinib_dose || 0),
+      };
+      
+      // Find the TKI type with non-zero dose
+      let selectedTkiType = "none";
+      let selectedTkiDose = "";
+      
+      const tkiTypes = ['imatinib', 'dasatinib', 'nilotinib', 'ponatinib', 'ruxolitinib'];
+      for (const type of tkiTypes) {
+        if (tkiDoses[type as keyof typeof tkiDoses] > 0) {
+          selectedTkiType = type;
+          selectedTkiDose = String(tkiDoses[type as keyof typeof tkiDoses]);
+          break;
+        }
+      }
+
+      setForm(prev => ({
+        ...prev,
+        patientName: prev.patientName || "",
+        patientId: prev.patientId || "",
+        age: age != null ? String(age) : "",
+        gender: typeof gender === 'number' ? gender : -1,
+        bmi: payload.BMI != null ? String(payload.BMI) : "",
+        diastolic: payload.diastolic != null ? String(payload.diastolic) : "",
+        systolic: payload.systolic != null ? String(payload.systolic) : "",
+        ureaNitrogen: payload["Urea Nitrogen"] != null ? String(payload["Urea Nitrogen"]) : "",
+        glucose: payload.Glucose != null ? String(payload.Glucose) : "",
+        whiteBloodCells: payload["White Blood Cells"] != null ? String(payload["White Blood Cells"]) : "",
+        neutrophils: payload.Neutrophils != null ? String(payload.Neutrophils) : "",
+        monocytes: payload.Monocytes != null ? String(payload.Monocytes) : "",
+        mch: payload.MCH != null ? String(payload.MCH) : "",
+        calciumTotal: payload["Calcium, Total"] != null ? String(payload["Calcium, Total"]) : "",
+        lymphocytes: payload.Lymphocytes != null ? String(payload.Lymphocytes) : "",
+        creatinine: payload.Creatinine != null ? String(payload.Creatinine) : "",
+        sodium: payload.Sodium != null ? String(payload.Sodium) : "",
+        pt: payload.PT != null ? String(payload.PT) : "",
+        tkiType: selectedTkiType,
+        tkiDose: selectedTkiDose,
+        tkiDoses: tkiDoses,
+      }));
+      setIsIdGenerated(false);
+      return;
+    }
+
+    const data = payload as UploadedData;
+    // Original flat schema support
     setForm(prev => ({
       ...prev,
       patientName: data.patientName || "",
       patientId: data.patientId || "",
       age: data.age?.toString() || "",
-      gender: data.gender ?? 0,
+      gender: data.gender ?? -1,
       bmi: data.bmi?.toString() || "",
       diastolic: data.diastolic?.toString() || "",
       systolic: data.systolic?.toString() || "",

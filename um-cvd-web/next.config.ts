@@ -5,8 +5,6 @@ const nextConfig: NextConfig = {
   experimental: {
     optimizePackageImports: ['plotly.js-dist-min', 'react-plotly.js'],
   },
-  // Improve build performance
-  swcMinify: true,
   // Better error handling
   onDemandEntries: {
     maxInactiveAge: 25 * 1000,
@@ -20,8 +18,7 @@ const nextConfig: NextConfig = {
   compress: true,
   // Improve development experience
   devIndicators: {
-    buildActivity: true,
-    buildActivityPosition: 'bottom-right',
+    position: 'bottom-right',
   },
 };
 

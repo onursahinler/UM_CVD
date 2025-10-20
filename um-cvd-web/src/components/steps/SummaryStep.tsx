@@ -9,33 +9,32 @@ interface SummaryStepProps {
 
 export function SummaryStep({ form }: SummaryStepProps) {
   const downloadJSON = () => {
-    // Create a flat JSON object with proper data types
-    const jsonData = {
-      patientName: form.patientName || "",
-      patientId: form.patientId || "",
-      age: form.age ? parseFloat(form.age) : null,
-      gender: form.gender === 0 ? "Male" : form.gender === 1 ? "Female" : "",
-      bmi: form.bmi ? parseFloat(form.bmi) : null,
-      diastolic: form.diastolic ? parseFloat(form.diastolic) : null,
+    // Build array with single object in the requested schema
+    const exportObj = {
+      anchor_age: form.age ? parseFloat(form.age) : null,
+      "White Blood Cells": form.whiteBloodCells ? parseFloat(form.whiteBloodCells) : null,
+      "Urea Nitrogen": form.ureaNitrogen ? parseFloat(form.ureaNitrogen) : null,
+      Neutrophils: form.neutrophils ? parseFloat(form.neutrophils) : null,
+      BMI: form.bmi ? parseFloat(form.bmi) : null,
+      Monocytes: form.monocytes ? parseFloat(form.monocytes) : null,
+      Glucose: form.glucose ? parseFloat(form.glucose) : null,
       systolic: form.systolic ? parseFloat(form.systolic) : null,
-      ureaNitrogen: form.ureaNitrogen ? parseFloat(form.ureaNitrogen) : null,
-      glucose: form.glucose ? parseFloat(form.glucose) : null,
-      whiteBloodCells: form.whiteBloodCells ? parseFloat(form.whiteBloodCells) : null,
-      neutrophils: form.neutrophils ? parseFloat(form.neutrophils) : null,
-      monocytes: form.monocytes ? parseFloat(form.monocytes) : null,
-      mch: form.mch ? parseFloat(form.mch) : null,
-      calciumTotal: form.calciumTotal ? parseFloat(form.calciumTotal) : null,
-      lymphocytes: form.lymphocytes ? parseFloat(form.lymphocytes) : null,
-      creatinine: form.creatinine ? parseFloat(form.creatinine) : null,
-      sodium: form.sodium ? parseFloat(form.sodium) : null,
-      pt: form.pt ? parseFloat(form.pt) : null,
-      tkiType: form.tkiType || "",
-      tkiDose: form.tkiDose ? parseFloat(form.tkiDose) : null,
-      model: form.model || ""
+      MCH: form.mch ? parseFloat(form.mch) : null,
+      "Calcium, Total": form.calciumTotal ? parseFloat(form.calciumTotal) : null,
+      Lymphocytes: form.lymphocytes ? parseFloat(form.lymphocytes) : null,
+      Creatinine: form.creatinine ? parseFloat(form.creatinine) : null,
+      Sodium: form.sodium ? parseFloat(form.sodium) : null,
+      diastolic: form.diastolic ? parseFloat(form.diastolic) : null,
+      PT: form.pt ? parseFloat(form.pt) : null,
+      imatinib_dose: form.tkiDoses?.imatinib ?? 0,
+      dasatinib_dose: form.tkiDoses?.dasatinib ?? 0,
+      gender_encoded: typeof form.gender === 'number' ? form.gender : null,
+      nilotinib_dose: form.tkiDoses?.nilotinib ?? 0,
+      ponatinib_dose: form.tkiDoses?.ponatinib ?? 0,
+      ruxolitinib_dose: form.tkiDoses?.ruxolitinib ?? 0,
     };
 
-    // Create and download the file
-    const dataStr = JSON.stringify(jsonData, null, 2);
+    const dataStr = JSON.stringify([exportObj], null, 2);
     const dataBlob = new Blob([dataStr], { type: 'application/json' });
     const url = URL.createObjectURL(dataBlob);
     const link = document.createElement('a');
@@ -59,7 +58,7 @@ export function SummaryStep({ form }: SummaryStepProps) {
       title: "Demographics & Health",
       fields: [
         { k: "age", label: "Age" },
-        { k: "gender", label: "Gender", transform: (val: string | number) => val === 0 ? "Male" : val === 1 ? "Female" : "-" },
+        { k: "gender", label: "Gender", transform: (val: string | number) => val === 0 ? "Male" : val === 1 ? "Female" : val === -1 ? "Not selected" : "-" },
         { k: "bmi", label: "BMI (kg/m²)" },
         { k: "diastolic", label: "Diastolic (mmHg)" },
         { k: "systolic", label: "Systolic (mmHg)" },
