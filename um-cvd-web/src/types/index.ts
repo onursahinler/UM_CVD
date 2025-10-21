@@ -4,7 +4,7 @@ export interface PatientForm {
   patientId: string;
   
   // Demographics
-  age: string;
+  anchor_age: string;
   bmi: string;
   diastolic: string;
   systolic: string;
@@ -34,6 +34,14 @@ export interface PatientForm {
     ponatinib: number;
     ruxolitinib: number;
   };
+  
+  // Backend API için gerekli alanlar
+  imatinib_dose: string;
+  dasatinib_dose: string;
+  nilotinib_dose: string;
+  ponatinib_dose: string;
+  ruxolitinib_dose: string;
+  gender_encoded: string;
   
   // Model
   model: string;

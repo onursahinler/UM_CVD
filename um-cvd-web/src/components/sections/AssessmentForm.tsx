@@ -65,11 +65,12 @@ const AssessmentForm = memo(({
             />
             <DemographicStep
               form={{
-                age: form.age,
+                anchor_age: form.anchor_age,
                 bmi: form.bmi,
                 diastolic: form.diastolic,
                 systolic: form.systolic,
                 gender: form.gender,
+                gender_encoded: form.gender_encoded,
               }}
               errors={errors}
               onInput={onInput}
@@ -105,6 +106,11 @@ const AssessmentForm = memo(({
             form={{
               tkiType: form.tkiType,
               tkiDose: form.tkiDose,
+              imatinib_dose: form.imatinib_dose,
+              dasatinib_dose: form.dasatinib_dose,
+              nilotinib_dose: form.nilotinib_dose,
+              ponatinib_dose: form.ponatinib_dose,
+              ruxolitinib_dose: form.ruxolitinib_dose,
             }}
             errors={errors}
             onToggle={onToggle}
@@ -123,7 +129,11 @@ const AssessmentForm = memo(({
         );
 
       case 4:
-        return <SummaryStep form={form} />;
+        return (
+          <SummaryStep 
+            form={form} 
+          />
+        );
 
       default:
         return <div className="text-sm text-foreground/70">Coming soon…</div>;

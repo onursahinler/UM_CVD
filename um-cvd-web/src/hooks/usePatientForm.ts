@@ -3,17 +3,18 @@ import { PatientForm, FormErrors, UploadedData } from '@/types';
 import { validateStep, generatePatientId } from '@/utils/validation';
 import { useFormContext } from '@/contexts/FormContext';
 
-const initialFormState: PatientForm = {
-  // Patient info
-  patientName: "",
-  patientId: "",
-  
-  // Demographics
-  age: "",
+  const initialFormState: PatientForm = {
+    // Patient info
+    patientName: "",
+    patientId: "",
+    
+    // Demographics
+    anchor_age: "",
   bmi: "",
   diastolic: "",
   systolic: "",
   gender: -1,
+  gender_encoded: "",
   
   // Laboratory
   ureaNitrogen: "",
@@ -39,6 +40,13 @@ const initialFormState: PatientForm = {
     ponatinib: 0,
     ruxolitinib: 0,
   },
+  
+  // Backend API için gerekli alanlar
+  imatinib_dose: "",
+  dasatinib_dose: "",
+  nilotinib_dose: "",
+  ponatinib_dose: "",
+  ruxolitinib_dose: "",
   
   // Model
   model: "",
@@ -113,7 +121,7 @@ export const usePatientForm = () => {
     clearError("model", true);
   }, [clearError]);
 
-  const handleTkiTypeChange = useCallback((value: string) => {
+  const handleTkiTypeChange = useCallback((value: string | number) => {
     setForm((f) => {
       const doseNum = f.tkiDose ? parseFloat(f.tkiDose) : 0;
       const nextMap = {
@@ -128,7 +136,7 @@ export const usePatientForm = () => {
       }
       return {
         ...f,
-        tkiType: value,
+        tkiType: String(value),
         tkiDose: value === "none" ? "" : f.tkiDose,
         tkiDoses: nextMap,
       };
@@ -194,7 +202,7 @@ export const usePatientForm = () => {
         ...prev,
         patientName: payload["Full name"] || prev.patientName || "",
         patientId: payload["Patient ID"] || prev.patientId || "",
-        age: age != null ? String(age) : "",
+        anchor_age: age != null ? String(age) : "",
         gender: typeof gender === 'number' ? gender : -1,
         bmi: payload.BMI != null ? String(payload.BMI) : "",
         diastolic: payload.diastolic != null ? String(payload.diastolic) : "",
@@ -213,6 +221,12 @@ export const usePatientForm = () => {
         tkiType: selectedTkiType,
         tkiDose: selectedTkiDose,
         tkiDoses: tkiDoses,
+        imatinib_dose: String(payload.imatinib_dose || 0),
+        dasatinib_dose: String(payload.dasatinib_dose || 0),
+        nilotinib_dose: String(payload.nilotinib_dose || 0),
+        ponatinib_dose: String(payload.ponatinib_dose || 0),
+        ruxolitinib_dose: String(payload.ruxolitinib_dose || 0),
+        gender_encoded: String(gender || 0),
       }));
       setIsIdGenerated(false);
       return;
@@ -224,7 +238,7 @@ export const usePatientForm = () => {
       ...prev,
       patientName: data.patientName || data["Full name"] || "",
       patientId: data.patientId || data["Patient ID"] || "",
-      age: data.age?.toString() || "",
+      anchor_age: data.age?.toString() || "",
       gender: data.gender ?? -1,
       bmi: data.bmi?.toString() || "",
       diastolic: data.diastolic?.toString() || "",

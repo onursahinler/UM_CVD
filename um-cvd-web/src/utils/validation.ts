@@ -7,9 +7,9 @@ export const validateStep = (activeIndex: number, form: PatientForm): FormErrors
     case 0:
       if (!form.patientName) errors.patientName = "This field is required";
       if (!form.patientId) errors.patientId = "Please generate a patient ID";
-      if (!form.age) errors.age = "This field is required";
-      if (form.age && (isNaN(parseFloat(form.age)) || !Number.isInteger(parseFloat(form.age)))) {
-        errors.age = "Please enter a valid whole number";
+      if (!form.anchor_age) errors.anchor_age = "This field is required";
+      if (form.anchor_age && (isNaN(parseFloat(form.anchor_age)) || !Number.isInteger(parseFloat(form.anchor_age)))) {
+        errors.anchor_age = "Please enter a valid whole number";
       }
       if (!form.bmi) errors.bmi = "This field is required";
       if (!form.diastolic) errors.diastolic = "This field is required";

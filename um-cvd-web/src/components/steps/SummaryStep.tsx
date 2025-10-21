@@ -13,7 +13,7 @@ export function SummaryStep({ form }: SummaryStepProps) {
     const exportObj = {
       "Full name": form.patientName || "",
       "Patient ID": form.patientId || "",
-      anchor_age: form.age ? parseFloat(form.age) : null,
+      anchor_age: form.anchor_age ? parseFloat(form.anchor_age) : null,
       "White Blood Cells": form.whiteBloodCells ? parseFloat(form.whiteBloodCells) : null,
       "Urea Nitrogen": form.ureaNitrogen ? parseFloat(form.ureaNitrogen) : null,
       Neutrophils: form.neutrophils ? parseFloat(form.neutrophils) : null,
@@ -59,7 +59,7 @@ export function SummaryStep({ form }: SummaryStepProps) {
     {
       title: "Demographics & Health",
       fields: [
-        { k: "age", label: "Age" },
+        { k: "anchor_age", label: "Age" },
         { k: "gender", label: "Gender", transform: (val: string | number) => val === 0 ? "Male" : val === 1 ? "Female" : val === -1 ? "Not selected" : "-" },
         { k: "bmi", label: "BMI (kg/m²)" },
         { k: "diastolic", label: "Diastolic (mmHg)" },
@@ -98,18 +98,20 @@ export function SummaryStep({ form }: SummaryStepProps) {
 
   return (
     <div className="col-span-2 space-y-6">
-      {/* Header with Download Button */}
+      {/* Header with Action Buttons */}
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-2xl font-bold text-white">Review & Confirmation</h2>
-        <button
-          onClick={downloadJSON}
-          className="inline-flex items-center gap-2 bg-brand-600 hover:bg-brand-700 text-white px-4 py-2 rounded-lg font-medium transition-colors"
-        >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-          </svg>
-          Download JSON
-        </button>
+        <div className="flex gap-3">
+          <button
+            onClick={downloadJSON}
+            className="inline-flex items-center gap-2 bg-brand-600 hover:bg-brand-700 text-white px-4 py-2 rounded-lg font-medium transition-colors"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+            Download JSON
+          </button>
+        </div>
       </div>
 
       {dataSections.map((section, sectionIndex) => (
@@ -129,6 +131,7 @@ export function SummaryStep({ form }: SummaryStepProps) {
           </div>
         </div>
       ))}
+
     </div>
   );
 }
