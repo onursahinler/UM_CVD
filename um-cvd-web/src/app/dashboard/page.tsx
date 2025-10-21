@@ -7,6 +7,13 @@ import { AssessmentForm } from "@/components/sections/AssessmentForm";
 import { usePatientForm } from "@/hooks/usePatientForm";
 import { useFormContext } from "@/contexts/FormContext";
 import { transformFormData, predictCVD, PredictionResult } from "@/services/api";
+import dynamic from 'next/dynamic';
+
+// Client-side rendering için dynamic import
+const ShapForcePlot = dynamic(() => import('@/components/ShapForcePlot'), {
+  ssr: false,
+  loading: () => <div className="text-center text-gray-600">SHAP plot yükleniyor...</div>
+});
 
 export default function Dashboard() {
   const [isCompleted, setIsCompleted] = useState(false);
@@ -75,7 +82,7 @@ export default function Dashboard() {
           </div>
           <div className="flex-1 overflow-y-auto px-4 pb-4">
             <div className="space-y-2">
-              {Object.entries(predictionResult.shap_values)
+              {Object.entries(predictionResult.shap_values_dict)
                 .sort(([,a], [,b]) => Math.abs(b) - Math.abs(a))
                 .slice(0, 20)
                 .map(([feature, value]) => (
@@ -147,7 +154,7 @@ export default function Dashboard() {
                   <div className="bg-white rounded-xl p-4 border border-black/10">
                     <div className="text-sm text-gray-600 font-medium">Base Value</div>
                     <div className="mt-1 text-lg font-semibold text-gray-800">
-                      {predictionResult.base_value.toFixed(4)}
+                      {predictionResult.baseValue.toFixed(4)}
                     </div>
                   </div>
                 </div>
@@ -155,10 +162,12 @@ export default function Dashboard() {
                 {/* SHAP Force Plot */}
                 <div className="bg-white rounded-xl p-4 border border-black/10">
                   <h4 className="text-lg font-semibold text-gray-800 mb-3">SHAP Force Plot</h4>
-                  <div className="text-center text-gray-600">
-                    <p>SHAP visualization will be displayed here</p>
-                    <p className="text-sm mt-2">Base Value: {predictionResult.base_value.toFixed(4)}</p>
-                  </div>
+                  <ShapForcePlot
+                    baseValue={predictionResult.baseValue}
+                    features={predictionResult.features}
+                    featureNames={predictionResult.featureNames}
+                    outNames={predictionResult.outNames}
+                  />
                 </div>
               </div>
             </div>

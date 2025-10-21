@@ -4,9 +4,12 @@ const API_BASE_URL = 'http://localhost:5001';
 export interface PredictionResult {
   prediction: number;
   probability_score: number;
-  shap_values: Record<string, number>;
-  base_value: number;
-  feature_values: Record<string, number | null>;
+  shap_values_dict: Record<string, number>;
+  baseValue: number;
+  featureValues: Record<string, number | null>;
+  features: Record<string, { effect: number; value: number | null }>;
+  featureNames: string[];
+  outNames: string[];
 }
 
 export interface PatientData {
