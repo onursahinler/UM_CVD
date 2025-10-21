@@ -70,7 +70,6 @@ const AssessmentForm = memo(({
                 diastolic: form.diastolic,
                 systolic: form.systolic,
                 gender: form.gender,
-                gender_encoded: form.gender_encoded,
               }}
               errors={errors}
               onInput={onInput}
@@ -106,11 +105,6 @@ const AssessmentForm = memo(({
             form={{
               tkiType: form.tkiType,
               tkiDose: form.tkiDose,
-              imatinib_dose: form.imatinib_dose,
-              dasatinib_dose: form.dasatinib_dose,
-              nilotinib_dose: form.nilotinib_dose,
-              ponatinib_dose: form.ponatinib_dose,
-              ruxolitinib_dose: form.ruxolitinib_dose,
             }}
             errors={errors}
             onToggle={onToggle}
