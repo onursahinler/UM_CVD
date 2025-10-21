@@ -1,6 +1,6 @@
 # UM CVD - Cardiovascular Disease Risk Analysis
 
-A personal project for cardiovascular disease risk analysis using Next.js and Python. This application provides an interactive platform for collecting patient data through a multi-step form and analyzing cardiovascular disease risk using machine learning models with SHAP explanations.
+A project for cardiovascular disease risk analysis using Next.js and Python. This application provides an interactive platform for collecting patient data through a multi-step form and analyzing cardiovascular disease risk using machine learning models with SHAP explanations.
 
 The project combines modern web technologies with data science to create a comprehensive risk assessment tool that can be used for research, education, or personal learning purposes.
 
