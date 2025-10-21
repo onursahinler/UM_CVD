@@ -41,7 +41,6 @@ export interface PatientForm {
   nilotinib_dose: string;
   ponatinib_dose: string;
   ruxolitinib_dose: string;
-  gender_encoded: string;
   
   // Model
   model: string;
@@ -64,6 +63,7 @@ export interface UploadedData {
   "Patient ID"?: string;
   age?: number;
   gender?: number;
+  gender_encoded?: number;
   bmi?: number;
   diastolic?: number;
   systolic?: number;

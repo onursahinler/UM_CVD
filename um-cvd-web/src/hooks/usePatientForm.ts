@@ -14,7 +14,6 @@ import { useFormContext } from '@/contexts/FormContext';
   diastolic: "",
   systolic: "",
   gender: -1,
-  gender_encoded: "",
   
   // Laboratory
   ureaNitrogen: "",
@@ -174,7 +173,7 @@ export const usePatientForm = () => {
 
     if (hasNewSchema) {
       const age = payload.anchor_age;
-      const gender = payload.gender_encoded;
+      const gender = payload.gender_encoded !== undefined ? payload.gender_encoded : payload.gender;
       // Determine TKI type and dose from the doses
       const tkiDoses = {
         none: 0,
@@ -226,7 +225,6 @@ export const usePatientForm = () => {
         nilotinib_dose: String(payload.nilotinib_dose || 0),
         ponatinib_dose: String(payload.ponatinib_dose || 0),
         ruxolitinib_dose: String(payload.ruxolitinib_dose || 0),
-        gender_encoded: String(gender || 0),
       }));
       setIsIdGenerated(false);
       return;

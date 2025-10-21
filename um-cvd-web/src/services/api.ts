@@ -56,7 +56,7 @@ export function transformFormData(formData: any): PatientData {
     PT: formData.pt ? parseFloat(formData.pt) : null,
     imatinib_dose: formData.imatinib_dose ? parseFloat(formData.imatinib_dose) : null,
     dasatinib_dose: formData.dasatinib_dose ? parseFloat(formData.dasatinib_dose) : null,
-    gender_encoded: formData.gender_encoded ? parseInt(formData.gender_encoded) : null,
+    gender_encoded: formData.gender !== undefined && formData.gender !== null ? formData.gender : null,
     nilotinib_dose: formData.nilotinib_dose ? parseFloat(formData.nilotinib_dose) : null,
     ponatinib_dose: formData.ponatinib_dose ? parseFloat(formData.ponatinib_dose) : null,
     ruxolitinib_dose: formData.ruxolitinib_dose ? parseFloat(formData.ruxolitinib_dose) : null,

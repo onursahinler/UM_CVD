@@ -10,10 +10,9 @@ interface DemographicStepProps {
     diastolic: string;
     systolic: string;
     gender: number;
-    gender_encoded: string;
   };
   errors: Record<string, string>;
-  onInput: (key: "anchor_age" | "bmi" | "diastolic" | "systolic" | "gender_encoded") => (e: React.ChangeEvent<HTMLInputElement>) => void;
+  onInput: (key: "anchor_age" | "bmi" | "diastolic" | "systolic") => (e: React.ChangeEvent<HTMLInputElement>) => void;
   onToggle: (key: "gender") => (val: string | number) => void;
 }
 
@@ -38,18 +37,6 @@ export function DemographicStep({ form, errors, onInput, onToggle }: Demographic
         value={form.gender}
         onChange={onToggle("gender")}
         error={errors.gender}
-      />
-      <PillNumberInput
-        label="Gender Encoded (0=Male, 1=Female)"
-        placeholder="0 veya 1"
-        step={1}
-        min={0}
-        max={1}
-        required
-        integerOnly
-        value={form.gender_encoded}
-        onChange={onInput("gender_encoded")}
-        error={errors.gender_encoded}
       />
       <PillNumberInput
         label="BMI (kg/m²)"
