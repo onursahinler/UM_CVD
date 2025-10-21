@@ -1,7 +1,7 @@
 Flask
 pandas
 numpy
-scikit-learn==1.7.2
+scikit-learn==1.6.1
 joblib
-shap
+shap==0.41.0
 Flask-Cors
