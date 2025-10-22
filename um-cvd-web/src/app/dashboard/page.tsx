@@ -82,22 +82,22 @@ export default function Dashboard() {
           </div>
           <div className="flex-1 overflow-y-auto px-4 pb-4">
             <div className="space-y-2">
-              {Object.entries(predictionResult.shap_values_dict)
-                .sort(([,a], [,b]) => Math.abs(b) - Math.abs(a))
+              {predictionResult.features && Object.entries(predictionResult.features)
+                .sort(([,a], [,b]) => Math.abs(a.effect) - Math.abs(b.effect))
                 .slice(0, 20)
-                .map(([feature, value]) => (
+                .map(([feature, data]) => (
                   <div key={feature} className="bg-white rounded-lg p-3 border border-black/10">
                     <div className="flex justify-between items-center">
                       <span className="text-sm font-medium text-gray-800 truncate">{feature}</span>
-                      <span className={`text-sm font-bold ${value >= 0 ? 'text-red-600' : 'text-blue-600'}`}>
-                        {value >= 0 ? '+' : ''}{value.toFixed(4)}
+                      <span className={`text-sm font-bold ${data.effect >= 0 ? 'text-red-600' : 'text-blue-600'}`}>
+                        {data.effect >= 0 ? '+' : ''}{data.effect.toFixed(4)}
                       </span>
                     </div>
                     {/* Visual bar */}
                     <div className="mt-2 w-full bg-gray-200 rounded-full h-1.5">
                       <div 
-                        className={`h-1.5 rounded-full ${value >= 0 ? 'bg-red-500' : 'bg-blue-500'}`}
-                        style={{ width: `${Math.min(Math.abs(value) * 20, 100)}%` }}
+                        className={`h-1.5 rounded-full ${data.effect >= 0 ? 'bg-red-500' : 'bg-blue-500'}`}
+                        style={{ width: `${Math.min(Math.abs(data.effect) * 20, 100)}%` }}
                       ></div>
                     </div>
                   </div>

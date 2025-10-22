@@ -1,2 +1,0 @@
-criterion,max_depth,max_features,max_samples,min_samples_leaf,min_samples_split,n_estimators
-gini,15,sqrt,0.8,10,8,200

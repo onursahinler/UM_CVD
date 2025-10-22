@@ -1,5 +1,5 @@
 // Backend API servisi
-const API_BASE_URL = 'http://localhost:5001';
+const API_BASE_URL = 'http://localhost:5002';
 
 export interface PredictionResult {
   prediction: number;

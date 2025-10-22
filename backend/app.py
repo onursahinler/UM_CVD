@@ -10,7 +10,7 @@ import traceback
 # --- Flask App Initialization ---
 app = Flask(__name__)
 # Allow requests from your Next.js app (adjust in production)
-CORS(app, resources={r"/predict": {"origins": "http://localhost:3000"}})
+CORS(app, resources={r"/predict": {"origins": ["http://localhost:3000", "http://localhost:3001"]}})
 
 # --- Globals: Model Loading & Feature List ---
 loaded_explainer = None
@@ -29,11 +29,26 @@ def load_models():
     """Load models into global variables at startup."""
     global loaded_explainer, loaded_scaler, loaded_imputer
     try:
-        # Update these paths if they are different
-        model_path = "models/"
-        loaded_explainer = joblib.load(model_path + "RF_explainer_allCVD.bz2")
-        loaded_scaler = joblib.load(model_path + 'RF_scaler_allCVD.pkl')
-        loaded_imputer = joblib.load(model_path + 'RF_imputer_allCVD.pkl')
+        # Model paths
+        model_path = "/Users/onursahinler/UM_CVD/backend/models/"
+        trained_path = model_path + "trained/"
+        preprocessing_path = model_path + "preprocessing/"
+        
+        # Check if model files exist
+        import os
+        if not os.path.exists(trained_path + "rf_model.pkl"):
+            print("❌ Model files not found. Please run the model training script first.")
+            return
+        
+        # Load all models
+        loaded_model = joblib.load(trained_path + "rf_model.pkl")
+        loaded_scaler = joblib.load(preprocessing_path + 'scaler.pkl')
+        loaded_imputer = joblib.load(preprocessing_path + 'imputer.pkl')
+        
+        # Create SHAP explainer at runtime
+        import shap
+        loaded_explainer = shap.TreeExplainer(loaded_model, model_output="raw")
+        
         print("✅ Models loaded successfully.")
     except Exception as e:
         print(f"❌ Error loading models: {e}")
@@ -89,14 +104,19 @@ def predict():
         base_value_class1 = loaded_explainer.expected_value[1]
         
         # CORRECT CALCULATION: The final score is the sum of the base value and SHAP values.
-        # DO NOT apply a sigmoid function here, as the Random Forest output is already a probability-like score.
-        final_score = base_value_class1 + np.sum(shap_values_class1)
+        # This gives us the raw model output, which we need to convert to probability
+        raw_score = base_value_class1 + np.sum(shap_values_class1)
+        
+        # Convert raw score to probability using sigmoid function
+        import math
+        final_score = 1 / (1 + math.exp(-raw_score))
         prediction = 1 if final_score >= 0.5 else 0
 
         print("\n5. Calculated Results:")
         print(f"   - SHAP Base Value (Class 1): {base_value_class1:.6f}")
         print(f"   - Sum of SHAP values:        {np.sum(shap_values_class1):.6f}")
-        print(f"   - Final Score (Base + SHAP): {final_score:.6f}")
+        print(f"   - Raw Score (Base + SHAP):   {raw_score:.6f}")
+        print(f"   - Final Probability:         {final_score:.6f}")
         print(f"   - Final Prediction (>=0.5):  {prediction}")
 
         # --- 5. Prepare JSON Response for Frontend ---
