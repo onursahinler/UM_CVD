@@ -1,3 +1,4 @@
+// components/steps/SummaryStep.tsx (SADELEŞTİRİLMİŞ)
 "use client";
 
 import React from "react";
@@ -5,9 +6,11 @@ import { PatientForm } from "@/types";
 
 interface SummaryStepProps {
   form: PatientForm;
+  error: string | null; // Sadece hata mesajını alacak
 }
 
-export function SummaryStep({ form }: SummaryStepProps) {
+export function SummaryStep({ form, error }: SummaryStepProps) {
+  // --- downloadJSON fonksiyonunuz burada HİÇBİR DEĞİŞİKLİK OLMADAN kalabilir ---
   const downloadJSON = () => {
     // Build array with single object in the requested schema
     const exportObj = {
@@ -48,6 +51,7 @@ export function SummaryStep({ form }: SummaryStepProps) {
     URL.revokeObjectURL(url);
   };
 
+  // --- dataSections array'iniz burada HİÇBİR DEĞİŞİKLİK OLMADAN kalabilir ---
   const dataSections = [
     {
       title: "Patient Information",
@@ -102,6 +106,7 @@ export function SummaryStep({ form }: SummaryStepProps) {
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-2xl font-bold text-white">Review & Confirmation</h2>
         <div className="flex gap-3">
+          {/* Sadece Download JSON butonu kaldı */}
           <button
             onClick={downloadJSON}
             className="inline-flex items-center gap-2 bg-brand-600 hover:bg-brand-700 text-white px-4 py-2 rounded-lg font-medium transition-colors"
@@ -113,7 +118,16 @@ export function SummaryStep({ form }: SummaryStepProps) {
           </button>
         </div>
       </div>
+      
+      {/* HATA GÖSTERİM ALANI (Aynı kaldı) */}
+      {error && (
+        <div className="bg-red-900 border border-red-700 text-red-200 px-4 py-3 rounded-lg" role="alert">
+          <strong className="font-bold">Hata: </strong>
+          <span className="block sm:inline">{error}</span>
+        </div>
+      )}
 
+      {/* --- dataSections.map kısmı HİÇBİR DEĞİŞİKLİK OLMADAN kalabilir --- */}
       {dataSections.map((section, sectionIndex) => (
         <div key={sectionIndex} className="bg-panel rounded-2xl border border-black/10 p-6 shadow-sm">
           <h3 className="text-lg font-semibold text-white mb-4 border-b border-white/20 pb-2">
