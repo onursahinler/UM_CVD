@@ -5,7 +5,7 @@ import shap
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 import os
-
+import io
 # --- 1. Uygulamayı Başlat ve CORS'u Aktif Et ---
 # (CORS, Next.js'in (localhost:3000) bu API (localhost:5000) ile konuşmasına izin verir)
 app = Flask(__name__)
@@ -39,58 +39,68 @@ FEATURE_ORDER = [
 @app.route('/api/predict', methods=['POST'])
 def predict():
     try:
-        # 1. Frontend'den gelen JSON verisini al
+        # 1. ... (Veri alma - DEĞİŞİKLİK YOK) ...
         input_json = request.get_json()
-        
-        # 2. JSON'ı listeye, sonra DataFrame'e dönüştür (Doğru sıra ile)
-        # Gelen JSON'ın {'feature1': value1, 'feature2': value2} formatında olduğunu varsayıyoruz
-        
-        # Gelen veriyi (tek bir hasta) doğru sıraya diz
+
+        # 2. ... (DataFrame oluşturma - DEĞİŞİKLİK YOK) ...
         input_data_list = []
         for feature in FEATURE_ORDER:
-            # Eğer frontend'den bir değer gelmezse 'None' (NaN) ata
             input_data_list.append(input_json.get(feature, None)) 
-
-        # Tek satırlık bir DataFrame oluştur
         input_df = pd.DataFrame([input_data_list], columns=FEATURE_ORDER)
 
-        # 3. Veri Ön İşleme (Imputer -> Scaler SIRA TEYİDİ GEREKİR)
-        # *** TAHMİNİ SIRA: Önce eksik veriyi doldur, SONRA ölçekle ***
-        # Lütfen bu sırayı hocanızla TEYİT EDİN.
-        data_imputed = loaded_imputer.transform(input_df)
-        data_scaled = loaded_scaler.transform(data_imputed)
+        # 3. ... (Veri Ön İşleme - DEĞİŞİKLİK YOK) ...
+        imputed_array = loaded_imputer.transform(input_df.values)
+        imputed_df = pd.DataFrame(imputed_array, columns=FEATURE_ORDER)
+        scaled_array = loaded_scaler.transform(imputed_df)
+        scaled_df = pd.DataFrame(scaled_array, columns=FEATURE_ORDER)
 
         # 4. Tahmin ve SHAP Değerlerini Hesapla
-        explanation = loaded_explainer(data_scaled)
+        explanation = loaded_explainer(scaled_df)
 
-        # "Class 1" (Muhtemelen "CVD Var") için değerleri al
-        prediction_probability = explanation.output_values[0][1]
-        shap_values = explanation.values[0][:, 1]
-        base_value = loaded_explainer.expected_value[1]
-        
-        # Ham veriyi (impute edilmiş ama ölçeklenmemiş) al
-        # Bu, SHAP plot'ta '56.0' gibi değerleri göstermek için kullanılır
-        unscaled_data = loaded_imputer.transform(input_df)
-        feature_values = unscaled_data[0].tolist()
+        shap_values = explanation.values[0, :, 1]
+        base_value = explanation.base_values[0, 1]
+        prediction_probability = base_value + shap_values.sum()
+
+        # --- YENİ BÖLÜM: TAM SHAP HTML OLUŞTURMA ---
+        # 'imputed_df.iloc[0]' -> plot'ta gösterilecek ham değerler
+        force_plot = shap.force_plot(
+            base_value,
+            shap_values,
+            features=imputed_df.iloc[0], 
+            show=False,
+            matplotlib=False
+        )
+
+        # HTML'i diske kaydetmek yerine, hafızada bir dosyaya (StringIO) kaydet
+        f = io.StringIO()
+        shap.save_html(f, force_plot)
+        # Hafızadaki dosyanın içeriğini string olarak al
+        shap_html = f.getvalue()
+        # -------------------------------------
+
+        feature_values = imputed_df.iloc[0].values.tolist()
 
         # 5. Frontend'e göndermek için JSON yanıtı hazırla
         response = {
             "status": "success",
-            "prediction": float(prediction_probability), # Tahmin olasılığı
-            "base_value": float(base_value),            # SHAP base value
-            "shap_values": shap_values.tolist(),        # SHAP değerleri listesi
-            "feature_names": FEATURE_ORDER,             # Özellik isimleri
-            "feature_values": feature_values            # Hastanın (doldurulmuş) verisi
+            "prediction": float(prediction_probability),
+            "base_value": float(base_value),
+            # Artık bunlara frontend'de ihtiyacımız yok ama gönderebiliriz
+            "shap_values": shap_values.tolist(),     
+            "feature_names": FEATURE_ORDER,          
+            "feature_values": feature_values,        
+            "shap_html": shap_html                   # <-- YENİ: Bu artık TAM BİR HTML DOSYASI
         }
         return jsonify(response)
 
     except Exception as e:
-        # Bir hata olursa frontend'e bildir
+        print(f"HATA OLUŞTU: {e}") 
+        import traceback
+        traceback.print_exc() 
         return jsonify({
             "status": "error",
             "message": str(e)
         }), 500
-
 
 # --- 5. Sunucuyu Başlat ---
 if __name__ == '__main__':

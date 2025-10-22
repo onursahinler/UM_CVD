@@ -2,17 +2,6 @@
 "use client";
 
 import React from "react";
-import dynamic from "next/dynamic";
-
-// 'shapjs' kütüphanesi client-side çalışır, Next.js'te SSR hatası almamak
-// için 'dynamic' import ile yüklüyoruz.
-const ForcePlot = dynamic(
-  () => import("shapjs").then((mod) => mod.ForcePlot),
-  {
-    ssr: false, // Server-side rendering'de bu komponenti yükleme
-    loading: () => <p>SHAP Plot Yükleniyor...</p>,
-  }
-);
 
 // Backend'den (app.py) gelecek olan JSON yanıtının tipi
 export interface ApiResult {
@@ -21,6 +10,7 @@ export interface ApiResult {
   shap_values: number[];
   feature_names: string[];
   feature_values: number[];
+  shap_html: string;
 }
 
 interface ResultsStepProps {
@@ -60,26 +50,45 @@ export function ResultsStep({ result, onBack, patientId }: ResultsStepProps) {
         </p>
       </div>
 
-      {/* SHAP Force Plot */}
+      {/* SHAP Force Plot (HTML ile) */}
       <div className="bg-panel rounded-2xl border border-black/10 p-6 shadow-sm">
         <h3 className="text-lg font-semibold text-white mb-4 border-b border-white/20 pb-2">
           SHAP Force Plot (Model Explainer)
         </h3>
         <p className="text-sm text-gray-300 mb-4">
-          Bu grafik, modelin temel beklentisinden (Base Value: {result.base_value.toFixed(3)}) 
-          başlayarak hangi faktörlerin riski artırdığını (kırmızı) ve 
-          azalttığını (mavi) göstermektedir.
+          This graph shows which factors increase (red) and decrease the risk (blue), starting 
+          from the model's basic expectation (Base Value: {result.base_value.toFixed(3)}).
         </p>
-        <div className="bg-white text-black p-4 rounded-lg overflow-x-auto">
-          <ForcePlot
-            baseValue={result.base_value}
-            features={result.feature_values.map((val, i) => ({
-              name: result.feature_names[i],
-              value: val, // `app.py`'den gelen impute edilmiş ham değer
-              effect: result.shap_values[i], // Bu özelliğin skora etkisi
-            }))}
-            // `outNames` prop'u, plot'un neyi tahmin ettiğini belirtir
-            outNames={["CVD Risk Score"]} 
+
+        {/* Python'dan gelen HTML'i buraya basıyoruz.
+          Bu HTML kendi <script> etiketlerini içerir ve interaktiftir.
+          'dangerouslySetInnerHTML' ismi korkutucudur ancak HTML'i
+          kendi backend'imiz ürettiği için (dışarıdan gelmediği için) güvenlidir.
+        */}
+        {/* Backend'den gelen tam HTML dosyasını göstermek için 'iframe' kullanıyoruz.
+    'srcDoc' özelliği, bir HTML string'ini iframe'in kaynağı olarak
+    güvenli bir şekilde yükler.
+*/}
+        {/* 1. YENİ DIŞ WRAPPER:
+    Bu div, 'overflow-x-auto' ile yatay kaydırmaya izin verir.
+    Beyaz arka planı ve yuvarlak köşeleri buraya taşıdık.
+*/}
+        <div className="bg-white rounded-lg overflow-x-auto overflow-y-hidden p-0">
+          
+          {/* 2. GÜNCELLENMİŞ IFRAME:
+              'minWidth' ekledik. Bu, iframe'i en az 800px geniş olmaya zorlar.
+              Ekran 800px'den darsa, dıştaki 'div' kaydırma çubuğunu gösterir.
+          */}
+          <iframe
+            srcDoc={result.shap_html}
+            style={{
+              width: '1200px', // Grafiğin düzgün görünmesi için minimum genişlik (bunu artırabilirsiniz)
+              height: '150px',   // Yüksekliği ihtiyacınıza göre ayarlayın
+
+            }}
+            title="SHAP Force Plot"
+            // 'seamless' özelliği eski bir özelliktir ancak bazı tarayıcılarda kenarlıkları sıfırlar
+            seamless 
           />
         </div>
       </div>
