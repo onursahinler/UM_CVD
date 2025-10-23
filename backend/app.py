@@ -6,6 +6,8 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 import os
 import io
+import time
+import random
 # --- 1. Uygulamayı Başlat ve CORS'u Aktif Et ---
 # (CORS, Next.js'in (localhost:3000) bu API (localhost:5000) ile konuşmasına izin verir)
 app = Flask(__name__)
@@ -39,6 +41,11 @@ FEATURE_ORDER = [
 @app.route('/api/predict', methods=['POST'])
 def predict():
     try:
+        # 0. Simulated processing time (3-4 seconds)
+        processing_time = random.uniform(3.0, 4.0)
+        print(f"Processing request... (simulated time: {processing_time:.1f}s)")
+        time.sleep(processing_time)
+        
         # 1. ... (Veri alma - DEĞİŞİKLİK YOK) ...
         input_json = request.get_json()
 
