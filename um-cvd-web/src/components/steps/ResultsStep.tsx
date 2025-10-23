@@ -35,6 +35,11 @@ export function ResultsStep({ result, onBack, patientId }: ResultsStepProps) {
   .sort((a, b) => Math.abs(b.shap) - Math.abs(a.shap));
   // --- YENİ BLOK BİTİŞİ ---
 
+  // --- YENİ VERİ: Sol menü için alfabetik sıralı liste ---
+  // Kopyasını oluşturup (.slice()) alfabetik olarak sıralıyoruz.
+  const featuresForSidebar = featuresWithShap.slice().sort((a, b) => a.name.localeCompare(b.name));
+  // --- YENİ BLOK BİTİŞİ ---
+
   // --- YENİ FONKSİYON: SHAP JSON İNDİRME ---
   const downloadShapJSON = () => {
     // featuresWithShap dizisini (sıralanmış haliyle) JSON'a çevir
@@ -52,110 +57,144 @@ export function ResultsStep({ result, onBack, patientId }: ResultsStepProps) {
   // --- YENİ FONKSİYON BİTİŞİ ---
 
   return (
-    <div className="col-span-2 space-y-6">
-      {/* Header */}
-      <div className="flex justify-between items-center mb-6">
-        <h2 className="text-2xl font-bold text-white">
-          Analysis Results (Patient ID: {patientId || "N/A"})
-        </h2>
-        <button
-          onClick={onBack}
-          className="inline-flex items-center gap-2 bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg font-medium transition-colors"
-        >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-          </svg>
-          Back to Summary
-        </button>
-      </div>
+    // --- GÜNCELLENMİŞ ANA YAPI ---
+    // 'col-span-2' parent'tan (AssessmentForm) geliyor.
+    // Grid yapısını 3 sütun yerine 4 sütuna bölüyoruz (1/4 sol, 3/4 sağ)
+    <div className="col-span-2 grid grid-cols-1 lg:grid-cols-4 gap-6"> 
 
-      {/* Prediction Score */}
-      <div className="bg-panel rounded-2xl border border-black/10 p-6 shadow-sm text-center">
-        <h3 className="text-lg font-semibold text-gray-300 mb-2">
-          CVD Risk Score
-        </h3>
-        <p className={`text-6xl font-bold ${parseFloat(riskScore) > 50 ? 'text-red-400' : 'text-green-400'}`}>
-          {riskScore}%
-        </p>
-      </div>
-
-      {/* SHAP Force Plot (HTML ile) */}
-      <div className="bg-panel rounded-2xl border border-black/10 p-6 shadow-sm">
-        <h3 className="text-lg font-semibold text-white mb-4 border-b border-white/20 pb-2">
-          SHAP Force Plot (Model Explainer)
-        </h3>
-        <p className="text-sm text-gray-300 mb-4">
-          This graph shows which factors increase (red) and decrease the risk (blue), starting 
-          from the model's basic expectation (Base Value: {result.base_value.toFixed(3)}).
-        </p>
-
-        <div className="bg-white rounded-lg overflow-x-auto overflow-y-hidden p-0">
-          <iframe
-            srcDoc={result.shap_html}
-            style={{
-              width: '1200px', 
-              height: '150px',
-            }}
-            title="SHAP Force Plot"
-            seamless 
-          />
-        </div>
-      </div>
-
-      {/* --- YENİ KUTUCUK: FEATURE SHAP DEĞERLERİ --- */}
-      <div className="bg-panel rounded-2xl border border-black/10 p-6 shadow-sm">
-        
-        {/* --- GÜNCELLENMİŞ BAŞLIK (flex eklendi) --- */}
-        <div className="flex justify-between items-center mb-4 border-b border-white/20 pb-2">
-          <h3 className="text-lg font-semibold text-white">
-            Feature Contribution (SHAP Values)
+      {/* --- YENİ SOL MENÜ (Patient Data) --- */}
+      {/* Bu blok artık 4 sütunun 1'ini kaplıyor */}
+      <aside className="lg:col-span-1 space-y-4">
+        <div className="bg-panel rounded-2xl border border-black/10 p-6 shadow-sm sticky top-6">
+          <h3 className="text-lg font-semibold text-white mb-4 border-b border-white/20 pb-2">
+            Patient Data
           </h3>
+          <div className="max-h-[70vh] overflow-y-auto space-y-2 pr-2">
+            {featuresForSidebar.map((feature) => (
+              <div 
+                key={feature.name} 
+                className="flex justify-between items-center bg-gray-800 p-3 rounded-lg"
+              >
+                <span className="font-medium text-white text-sm">{feature.name}</span>
+                <span className="font-bold text-gray-300 text-sm">{feature.value.toFixed(2)}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </aside>
+      {/* --- YENİ SOL MENÜ BİTİŞİ --- */}
+
+
+      {/* --- ANA İÇERİK ALANI (Mevcut Paneller) --- */}
+      {/* Bu blok artık 4 sütunun 3'ünü kaplayarak genişledi */}
+      <main className="lg:col-span-3 space-y-6">
+        
+        {/* Header - Ana içeriğin en üstüne taşındı */}
+        <div className="flex justify-between items-center">
+          <h2 className="text-2xl font-bold text-white">
+            Analysis Results (Patient ID: {patientId || "N/A"})
+          </h2>
           <button
-            onClick={downloadShapJSON}
-            className="inline-flex items-center gap-2 bg-brand-600 hover:bg-brand-700 text-white px-4 py-2 rounded-lg font-medium transition-colors text-sm"
+            onClick={onBack}
+            className="inline-flex items-center gap-2 bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg font-medium transition-colors"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
             </svg>
-            Download SHAP JSON
+            Back to Summary
           </button>
         </div>
-        {/* --- BAŞLIK GÜNCELLEMESİ BİTTİ --- */}
 
-        <p className="text-sm text-gray-300 mb-4">
-        The effect of the features on the risk score of the model (from the most effective to the least effective). 
-        Red (positive) values increase risk, blue (negative) values reduce risk.
-        </p>
-        
-        {/* Özellik listesi için kaydırılabilir alan */}
-        <div className="max-h-60 overflow-y-auto space-y-2 pr-2">
-          {featuresWithShap.map((feature) => (
-            <div 
-              key={feature.name} 
-              className="flex justify-between items-center bg-gray-800 p-3 rounded-lg"
+        {/* Prediction Score */}
+        <div className="bg-panel rounded-2xl border border-black/10 p-6 shadow-sm text-center">
+          <h3 className="text-lg font-semibold text-gray-300 mb-2">
+            CVD Risk Score
+          </h3>
+          <p className={`text-6xl font-bold ${parseFloat(riskScore) > 50 ? 'text-red-400' : 'text-green-400'}`}>
+            {riskScore}%
+          </p>
+        </div>
+
+        {/* SHAP Force Plot (HTML ile) */}
+        <div className="bg-panel rounded-2xl border border-black/10 p-6 shadow-sm">
+          <h3 className="text-lg font-semibold text-white mb-4 border-b border-white/20 pb-2">
+            SHAP Force Plot (Model Explainer)
+          </h3>
+          <p className="text-sm text-gray-300 mb-4">
+            This graph shows which factors increase (red) and decrease the risk (blue), starting 
+            from the model's basic expectation (Base Value: {result.base_value.toFixed(3)}).
+          </p>
+
+          <div className="bg-white rounded-lg overflow-x-auto overflow-y-hidden p-0">
+            <iframe
+              srcDoc={result.shap_html}
+              style={{
+                width: '1300px', // Genişleyen alana sığması için biraz daha artırıldı
+                height: '150px',
+              }}
+              title="SHAP Force Plot"
+              seamless 
+            />
+          </div>
+        </div>
+
+        {/* --- YENİ KUTUCUK: FEATURE SHAP DEĞERLERİ --- */}
+        <div className="bg-panel rounded-2xl border border-black/10 p-6 shadow-sm">
+          
+          {/* --- GÜNCELLENMİŞ BAŞLIK (flex eklendi) --- */}
+          <div className="flex justify-between items-center mb-4 border-b border-white/20 pb-2">
+            <h3 className="text-lg font-semibold text-white">
+              Feature Contribution (SHAP Values)
+            </h3>
+            <button
+              onClick={downloadShapJSON}
+              className="inline-flex items-center gap-2 bg-brand-600 hover:bg-brand-700 text-white px-4 py-2 rounded-lg font-medium transition-colors text-sm"
             >
-              {/* Özellik Adı ve Değeri */}
-              <div>
-                <span className="font-medium text-white">{feature.name}</span>
-                <span className="text-sm text-gray-400 ml-2">
-                  (Value: {feature.value.toFixed(2)})
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              Download SHAP JSON
+            </button>
+          </div>
+          {/* --- BAŞLIK GÜNCELLEMESİ BİTTİ --- */}
+
+          <p className="text-sm text-gray-300 mb-4">
+          The effect of the features on the risk score of the model (from the most effective to the least effective). 
+          Red (positive) values increase risk, blue (negative) values reduce risk.
+          </p>
+          
+          {/* Özellik listesi için kaydırılabilir alan */}
+          <div className="max-h-60 overflow-y-auto space-y-2 pr-2">
+            {featuresWithShap.map((feature) => (
+              <div 
+                key={feature.name} 
+                className="flex justify-between items-center bg-gray-800 p-3 rounded-lg"
+              >
+                {/* Özellik Adı ve Değeri */}
+                <div>
+                  <span className="font-medium text-white">{feature.name}</span>
+                  <span className="text-sm text-gray-400 ml-2">
+                    (Value: {feature.value.toFixed(2)})
+                  </span>
+                </div>
+                
+                {/* SHAP Değeri */}
+                <span 
+                  className={`font-bold text-lg ${
+                    feature.shap > 0 ? 'text-red-400' : 'text-blue-400'
+                  }`}
+                >
+                  {/* Değer pozitifse + işareti koy, değilse zaten - işareti vardır */}
+                  {feature.shap > 0 ? '+' : ''}{feature.shap.toFixed(3)}
                 </span>
               </div>
-              
-              {/* SHAP Değeri */}
-              <span 
-                className={`font-bold text-lg ${
-                  feature.shap > 0 ? 'text-red-400' : 'text-blue-400'
-                }`}
-              >
-                {/* Değer pozitifse + işareti koy, değilse zaten - işareti vardır */}
-                {feature.shap > 0 ? '+' : ''}{feature.shap.toFixed(3)}
-              </span>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
-      </div>
-      {/* --- YENİ KUTUCUK BİTİŞİ --- */}
+        {/* --- YENİ KUTUCUK BİTİŞİ --- */}
+
+      </main>
+      {/* --- ANA İÇERİK ALANI BİTİŞİ --- */}
 
     </div>
   );
