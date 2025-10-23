@@ -22,6 +22,35 @@ interface ResultsStepProps {
 export function ResultsStep({ result, onBack, patientId }: ResultsStepProps) {
   const riskScore = (result.prediction * 100).toFixed(2);
 
+  // --- YENİ VERİ HAZIRLAMA BLOĞU ---
+  // Üç diziyi birleştirerek daha kolay yönetilebilir bir yapı oluşturalım.
+  // [isim, shap_değeri] olarak birleştirip, SHAP değerine göre (büyükten küçüğe) sıralayalım.
+  const featuresWithShap = result.feature_names.map((name, index) => ({
+    name: name,
+    value: result.feature_values[index], // Hastanın bu özellik için (impute edilmiş) değeri
+    shap: result.shap_values[index]      // Bu özelliğin skora etkisi (SHAP)
+  }))
+  // Etkisi en yüksek olanları (pozitif veya negatif fark etmeksizin, mutlak değere göre)
+  // en üstte göstermek için sıralayalım.
+  .sort((a, b) => Math.abs(b.shap) - Math.abs(a.shap));
+  // --- YENİ BLOK BİTİŞİ ---
+
+  // --- YENİ FONKSİYON: SHAP JSON İNDİRME ---
+  const downloadShapJSON = () => {
+    // featuresWithShap dizisini (sıralanmış haliyle) JSON'a çevir
+    const dataStr = JSON.stringify(featuresWithShap, null, 2);
+    const dataBlob = new Blob([dataStr], { type: 'application/json' });
+    const url = URL.createObjectURL(dataBlob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `shap-values-${patientId || 'export'}-${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+  // --- YENİ FONKSİYON BİTİŞİ ---
+
   return (
     <div className="col-span-2 space-y-6">
       {/* Header */}
@@ -60,38 +89,75 @@ export function ResultsStep({ result, onBack, patientId }: ResultsStepProps) {
           from the model's basic expectation (Base Value: {result.base_value.toFixed(3)}).
         </p>
 
-        {/* Python'dan gelen HTML'i buraya basıyoruz.
-          Bu HTML kendi <script> etiketlerini içerir ve interaktiftir.
-          'dangerouslySetInnerHTML' ismi korkutucudur ancak HTML'i
-          kendi backend'imiz ürettiği için (dışarıdan gelmediği için) güvenlidir.
-        */}
-        {/* Backend'den gelen tam HTML dosyasını göstermek için 'iframe' kullanıyoruz.
-    'srcDoc' özelliği, bir HTML string'ini iframe'in kaynağı olarak
-    güvenli bir şekilde yükler.
-*/}
-        {/* 1. YENİ DIŞ WRAPPER:
-    Bu div, 'overflow-x-auto' ile yatay kaydırmaya izin verir.
-    Beyaz arka planı ve yuvarlak köşeleri buraya taşıdık.
-*/}
         <div className="bg-white rounded-lg overflow-x-auto overflow-y-hidden p-0">
-          
-          {/* 2. GÜNCELLENMİŞ IFRAME:
-              'minWidth' ekledik. Bu, iframe'i en az 800px geniş olmaya zorlar.
-              Ekran 800px'den darsa, dıştaki 'div' kaydırma çubuğunu gösterir.
-          */}
           <iframe
             srcDoc={result.shap_html}
             style={{
-              width: '1200px', // Grafiğin düzgün görünmesi için minimum genişlik (bunu artırabilirsiniz)
-              height: '150px',   // Yüksekliği ihtiyacınıza göre ayarlayın
-
+              width: '1200px', 
+              height: '150px',
             }}
             title="SHAP Force Plot"
-            // 'seamless' özelliği eski bir özelliktir ancak bazı tarayıcılarda kenarlıkları sıfırlar
             seamless 
           />
         </div>
       </div>
+
+      {/* --- YENİ KUTUCUK: FEATURE SHAP DEĞERLERİ --- */}
+      <div className="bg-panel rounded-2xl border border-black/10 p-6 shadow-sm">
+        
+        {/* --- GÜNCELLENMİŞ BAŞLIK (flex eklendi) --- */}
+        <div className="flex justify-between items-center mb-4 border-b border-white/20 pb-2">
+          <h3 className="text-lg font-semibold text-white">
+            Feature Contribution (SHAP Values)
+          </h3>
+          <button
+            onClick={downloadShapJSON}
+            className="inline-flex items-center gap-2 bg-brand-600 hover:bg-brand-700 text-white px-4 py-2 rounded-lg font-medium transition-colors text-sm"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+            Download SHAP JSON
+          </button>
+        </div>
+        {/* --- BAŞLIK GÜNCELLEMESİ BİTTİ --- */}
+
+        <p className="text-sm text-gray-300 mb-4">
+        The effect of the features on the risk score of the model (from the most effective to the least effective). 
+        Red (positive) values increase risk, blue (negative) values reduce risk.
+        </p>
+        
+        {/* Özellik listesi için kaydırılabilir alan */}
+        <div className="max-h-60 overflow-y-auto space-y-2 pr-2">
+          {featuresWithShap.map((feature) => (
+            <div 
+              key={feature.name} 
+              className="flex justify-between items-center bg-gray-800 p-3 rounded-lg"
+            >
+              {/* Özellik Adı ve Değeri */}
+              <div>
+                <span className="font-medium text-white">{feature.name}</span>
+                <span className="text-sm text-gray-400 ml-2">
+                  (Value: {feature.value.toFixed(2)})
+                </span>
+              </div>
+              
+              {/* SHAP Değeri */}
+              <span 
+                className={`font-bold text-lg ${
+                  feature.shap > 0 ? 'text-red-400' : 'text-blue-400'
+                }`}
+              >
+                {/* Değer pozitifse + işareti koy, değilse zaten - işareti vardır */}
+                {feature.shap > 0 ? '+' : ''}{feature.shap.toFixed(3)}
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+      {/* --- YENİ KUTUCUK BİTİŞİ --- */}
+
     </div>
   );
 }
+
