@@ -88,8 +88,8 @@ export function ResultsStep({
   const [newApiResult, setNewApiResult] = useState<ApiResult | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [progress, setProgress] = useState(0);
-  const [hideOriginalFeatures, setHideOriginalFeatures] = useState(false);
-  const [hideUpdatedFeatures, setHideUpdatedFeatures] = useState(false);
+  const [hideOriginalFeatures, setHideOriginalFeatures] = useState(true);
+  const [hideUpdatedFeatures, setHideUpdatedFeatures] = useState(true);
   // --- STATE'LER BİTTİ ---
 
 
