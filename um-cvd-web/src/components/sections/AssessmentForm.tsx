@@ -67,7 +67,7 @@ const AssessmentForm = memo(({
   // --- YENİ: YENİDEN KULLANILABİLİR ANALİZ FONKSİYONU ---
   // API çağırma mantığını 'goNext' içinden çıkarıp buraya taşıdık.
   // Bu fonksiyon artık 'ResultsStep'e prop olarak aktarılacak.
-  const runAnalysis = async (dataToAnalyze: FlatPatientData): Promise<ApiResult | null> => {
+  const runAnalysis = async (dataToAnalyze: FlatPatientData): Promise<ApiResult | SimpleApiResult | null> => {
     setIsLoading(true);
     setError(null);
     setProgress(0);
@@ -218,7 +218,11 @@ const AssessmentForm = memo(({
           // YENİ PROPLAR:
           originalResult={originalApiResult}
           originalFlatData={originalFlatData}
-          onRunAnalysis={runAnalysis} // API fonksiyonunu iletiyoruz
+          onRunAnalysis={async (data) => {
+            // Sadece detaylı analiz için API çağrısı
+            const result = await runAnalysis(data);
+            return result && 'base_value' in result ? result : null;
+          }}
           onBack={handleBackFromResults}
           patientId={form.patientId || ""}
         />
