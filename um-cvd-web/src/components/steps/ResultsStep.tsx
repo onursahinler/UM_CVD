@@ -87,6 +87,8 @@ export function ResultsStep({
   const [editableData, setEditableData] = useState<FlatPatientData>(originalFlatData);
   const [newApiResult, setNewApiResult] = useState<ApiResult | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [hideOriginalFeatures, setHideOriginalFeatures] = useState(false);
+  const [hideUpdatedFeatures, setHideUpdatedFeatures] = useState(false);
   // --- STATE'LER BİTTİ ---
 
 
@@ -186,6 +188,18 @@ export function ResultsStep({
     const link = document.createElement('a');
     link.href = url;
     link.download = `shap-values-${type}-${patientId || 'export'}-${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  const downloadShapHTML = (htmlContent: string, type: 'original' | 'updated') => {
+    const blob = new Blob([htmlContent], { type: 'text/html' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `shap-plot-${type}-${patientId || 'export'}-${new Date().toISOString().split('T')[0]}.html`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -343,137 +357,197 @@ export function ResultsStep({
           </button>
         </div>
 
-        {/* --- KARŞILAŞTIRMA BÖLÜMÜ (Alt Alta - Aynı Kaldı) --- */}
-        <div className="grid grid-cols-1 gap-10"> 
+        {/* --- KARŞILAŞTIRMA BÖLÜMÜ (Alt Alta) --- */}
+        <div className="grid grid-cols-1 gap-8"> 
             
-            {/* --- ORİJİNAL SONUÇ BÖLÜMÜ (Aynı Kaldı) --- */}
+            {/* --- ORİJİNAL SONUÇ BÖLÜMÜ --- */}
             <div className="space-y-6">
               <h3 className="text-xl font-bold text-gray-300 text-center border-b border-gray-700 pb-2 mb-4">Original Results</h3>
 
               {/* Prediction Score (Orijinal) */}
-              <div className="bg-panel rounded-2xl border border-black/10 p-6 shadow-sm text-center">
-                <h3 className="text-lg font-semibold text-gray-300 mb-2">
+              <div className="bg-panel rounded-2xl border border-black/10 p-4 shadow-sm text-center">
+                <h3 className="text-base font-semibold text-gray-300 mb-2">
                   CVD Risk Score
                 </h3>
-                <p className={`text-6xl font-bold ${parseFloat(originalRiskScore) > 50 ? 'text-red-400' : 'text-green-400'}`}>
+                <p className={`text-4xl font-bold ${parseFloat(originalRiskScore) > 50 ? 'text-red-400' : 'text-green-400'}`}>
                   {originalRiskScore}%
                 </p>
               </div>
 
-              {/* SHAP Force Plot (Orijinal) */}
-              <div className="bg-panel rounded-2xl border border-black/10 p-6 shadow-sm">
-                <h3 className="text-lg font-semibold text-white mb-4 border-b border-white/20 pb-2">
-                  SHAP Force Plot
-                </h3>
-                <p className="text-sm text-gray-300 mb-4">
-                  Base Value: {originalResult.base_value.toFixed(3)}
-                </p>
-                {/* DIŞ DIV'E overflow-x-auto EKLENDİ */}
-                <div className="bg-white rounded-lg overflow-x-auto overflow-y-hidden p-0"> 
-                  {/* IFRAME'E width: 100% GERİ GETİRİLDİ */}
-                  <iframe
-                    srcDoc={originalResult.shap_html}
-                    style={{ width: '1200px', height: '150px', border: 'none' }} 
-                    title="Original SHAP Force Plot"
-                    seamless 
-                  />
-                </div>
-              </div>
-              
-              {/* Feature Contribution (Orijinal) */}
-              <div className="bg-panel rounded-2xl border border-black/10 p-6 shadow-sm">
-                <div className="flex justify-between items-center mb-4 border-b border-white/20 pb-2">
-                  <h3 className="text-lg font-semibold text-white">
-                    Feature Contribution
-                  </h3>
-                  <button
-                    onClick={() => downloadShapJSON(originalFeaturesWithShap, 'original')}
-                    className="inline-flex items-center gap-2 bg-brand-600 hover:bg-brand-700 text-white px-4 py-2 rounded-lg font-medium transition-colors text-sm"
-                  >
-                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
-                    Download JSON
-                  </button>
-                </div>
-                <div className="max-h-60 overflow-y-auto space-y-2 pr-2">
-                  {originalFeaturesWithShap.map((feature) => (
-                    <div key={feature.name} className="flex justify-between items-center bg-gray-800 p-3 rounded-lg">
-                      <div>
-                        <span className="font-medium text-white">{feature.name}</span>
-                        <span className="text-sm text-gray-400 ml-2">(Value: {feature.value.toFixed(2)})</span>
-                      </div>
-                      <span className={`font-bold text-lg ${feature.shap > 0 ? 'text-red-400' : 'text-blue-400'}`}>
-                        {feature.shap > 0 ? '+' : ''}{feature.shap.toFixed(3)}
-                      </span>
+              {/* SHAP Plot ve Feature Contribution (Yan Yana) */}
+              <div className={`grid gap-6 ${hideOriginalFeatures ? 'grid-cols-1' : 'grid-cols-1 lg:grid-cols-2'}`}>
+                {/* SHAP Force Plot (Orijinal) */}
+                <div className="bg-panel rounded-2xl border border-black/10 p-6 shadow-sm">
+                  <div className="flex justify-between items-center mb-4 border-b border-white/20 pb-2">
+                    <h3 className="text-lg font-semibold text-white">
+                      SHAP Force Plot
+                    </h3>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => downloadShapHTML(originalResult.shap_html, 'original')}
+                        className="inline-flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded-lg font-medium transition-colors text-sm"
+                        title="Download SHAP Plot as HTML"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                        Download HTML
+                      </button>
+                      <button
+                        onClick={() => setHideOriginalFeatures(!hideOriginalFeatures)}
+                        className="inline-flex items-center gap-2 bg-gray-600 hover:bg-gray-700 text-white px-3 py-1 rounded-lg font-medium transition-colors text-sm"
+                        title={hideOriginalFeatures ? "Show Feature Contribution" : "Hide Feature Contribution"}
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          {hideOriginalFeatures ? (
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                          ) : (
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.878 9.878L3 3m6.878 6.878L21 21" />
+                          )}
+                        </svg>
+                        {hideOriginalFeatures ? 'Show Features' : 'Hide Features'}
+                      </button>
                     </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-            
-            {/* --- YENİ SONUÇ BÖLÜMÜ (Koşullu - Aynı Kaldı) --- */}
-            {newApiResult && (
-              <div className="space-y-6">
-                 {/* Yeni bölümleri ayırmak için çizgi */}
-                <hr className="border-t-2 border-blue-800 my-4" /> 
-                <h3 className="text-xl font-bold text-white text-center border-b border-gray-700 pb-2 mb-4">Updated Results</h3>
-
-                {/* Prediction Score (Yeni) */}
-                <div className="bg-panel rounded-2xl border border-blue-900/50 p-6 shadow-sm text-center">
-                  <h3 className="text-lg font-semibold text-gray-300 mb-2">
-                    CVD Risk Score
-                  </h3>
-                  <p className={`text-6xl font-bold ${parseFloat(newRiskScore) > 50 ? 'text-red-400' : 'text-green-400'}`}>
-                    {newRiskScore}%
-                  </p>
-                </div>
-
-                {/* SHAP Force Plot (Yeni) */}
-                <div className="bg-panel rounded-2xl border border-blue-900/50 p-6 shadow-sm">
-                  <h3 className="text-lg font-semibold text-white mb-4 border-b border-white/20 pb-2">
-                    SHAP Force Plot
-                  </h3>
+                  </div>
                   <p className="text-sm text-gray-300 mb-4">
-                    Base Value: {newApiResult.base_value.toFixed(3)}
+                    Base Value: {originalResult.base_value.toFixed(3)}
                   </p>
-                  {/* DIŞ DIV'E overflow-x-auto EKLENDİ */}
-                  <div className="bg-white rounded-lg overflow-x-auto overflow-y-hidden p-0">
-                    {/* IFRAME'E width: 100% GERİ GETİRİLDİ */}
+                  <div className="bg-white rounded-lg overflow-x-auto overflow-y-hidden p-0"> 
                     <iframe
-                      srcDoc={newApiResult.shap_html}
-                      style={{ width: '1200px', height: '150px', border: 'none' }}
-                      title="New SHAP Force Plot"
+                      srcDoc={originalResult.shap_html}
+                      style={{ width: '1200px', minWidth: '500px', height: '150px', border: 'none' }} 
+                      title="Original SHAP Force Plot"
                       seamless 
                     />
                   </div>
                 </div>
                 
-                {/* Feature Contribution (Yeni) */}
-                <div className="bg-panel rounded-2xl border border-blue-900/50 p-6 shadow-sm">
-                  <div className="flex justify-between items-center mb-4 border-b border-white/20 pb-2">
-                    <h3 className="text-lg font-semibold text-white">
-                      Feature Contribution
-                    </h3>
-                    <button
-                      onClick={() => downloadShapJSON(newFeaturesWithShap, 'updated')}
-                      className="inline-flex items-center gap-2 bg-brand-600 hover:bg-brand-700 text-white px-4 py-2 rounded-lg font-medium transition-colors text-sm"
-                    >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
-                      Download JSON
-                    </button>
-                  </div>
-                  <div className="max-h-60 overflow-y-auto space-y-2 pr-2">
-                    {newFeaturesWithShap.map((feature) => (
-                      <div key={feature.name} className="flex justify-between items-center bg-gray-800 p-3 rounded-lg">
-                        <div>
-                          <span className="font-medium text-white">{feature.name}</span>
-                          <span className="text-sm text-gray-400 ml-2">(Value: {feature.value.toFixed(2)})</span>
+                {/* Feature Contribution (Orijinal) */}
+                {!hideOriginalFeatures && (
+                  <div className="bg-panel rounded-2xl border border-black/10 p-6 shadow-sm">
+                    <div className="flex justify-between items-center mb-4 border-b border-white/20 pb-2">
+                      <h3 className="text-lg font-semibold text-white">
+                        Feature Contribution
+                      </h3>
+                      <button
+                        onClick={() => downloadShapJSON(originalFeaturesWithShap, 'original')}
+                        className="inline-flex items-center gap-2 bg-brand-600 hover:bg-brand-700 text-white px-4 py-2 rounded-lg font-medium transition-colors text-sm"
+                      >
+                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+                        Download JSON
+                      </button>
+                    </div>
+                    <div className="max-h-60 overflow-y-auto space-y-2 pr-2">
+                      {originalFeaturesWithShap.map((feature) => (
+                        <div key={feature.name} className="flex justify-between items-center bg-gray-800 p-3 rounded-lg">
+                          <div>
+                            <span className="font-medium text-white">{feature.name}</span>
+                            <span className="text-sm text-gray-400 ml-2">(Value: {feature.value.toFixed(2)})</span>
+                          </div>
+                          <span className={`font-bold text-lg ${feature.shap > 0 ? 'text-red-400' : 'text-blue-400'}`}>
+                            {feature.shap > 0 ? '+' : ''}{feature.shap.toFixed(3)}
+                          </span>
                         </div>
-                        <span className={`font-bold text-lg ${feature.shap > 0 ? 'text-red-400' : 'text-blue-400'}`}>
-                          {feature.shap > 0 ? '+' : ''}{feature.shap.toFixed(3)}
-                        </span>
-                      </div>
-                    ))}
+                      ))}
+                    </div>
                   </div>
+                )}
+              </div>
+            </div>
+            
+            {/* --- YENİ SONUÇ BÖLÜMÜ (Koşullu) --- */}
+            {newApiResult && (
+              <div className="space-y-6">
+                <h3 className="text-xl font-bold text-white text-center border-b border-gray-700 pb-2 mb-4">Updated Results</h3>
+
+                {/* Prediction Score (Yeni) */}
+                <div className="bg-panel rounded-2xl border border-blue-900/50 p-4 shadow-sm text-center">
+                  <h3 className="text-base font-semibold text-gray-300 mb-2">
+                    CVD Risk Score
+                  </h3>
+                  <p className={`text-4xl font-bold ${parseFloat(newRiskScore) > 50 ? 'text-red-400' : 'text-green-400'}`}>
+                    {newRiskScore}%
+                  </p>
+                </div>
+
+                {/* SHAP Plot ve Feature Contribution (Yan Yana) */}
+                <div className={`grid gap-6 ${hideUpdatedFeatures ? 'grid-cols-1' : 'grid-cols-1 lg:grid-cols-2'}`}>
+                  {/* SHAP Force Plot (Yeni) */}
+                  <div className="bg-panel rounded-2xl border border-blue-900/50 p-6 shadow-sm">
+                    <div className="flex justify-between items-center mb-4 border-b border-white/20 pb-2">
+                      <h3 className="text-lg font-semibold text-white">
+                        SHAP Force Plot
+                      </h3>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => downloadShapHTML(newApiResult.shap_html, 'updated')}
+                          className="inline-flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded-lg font-medium transition-colors text-sm"
+                          title="Download SHAP Plot as HTML"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                          </svg>
+                          Download HTML
+                        </button>
+                        <button
+                          onClick={() => setHideUpdatedFeatures(!hideUpdatedFeatures)}
+                          className="inline-flex items-center gap-2 bg-gray-600 hover:bg-gray-700 text-white px-3 py-1 rounded-lg font-medium transition-colors text-sm"
+                          title={hideUpdatedFeatures ? "Show Feature Contribution" : "Hide Feature Contribution"}
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            {hideUpdatedFeatures ? (
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                            ) : (
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.878 9.878L3 3m6.878 6.878L21 21" />
+                            )}
+                          </svg>
+                          {hideUpdatedFeatures ? 'Show Features' : 'Hide Features'}
+                        </button>
+                      </div>
+                    </div>
+                    <p className="text-sm text-gray-300 mb-4">
+                      Base Value: {newApiResult.base_value.toFixed(3)}
+                    </p>
+                    <div className="bg-white rounded-lg overflow-x-auto overflow-y-hidden p-0">
+                      <iframe
+                        srcDoc={newApiResult.shap_html}
+                        style={{ width: '1100px', minWidth: '500px', height: '150px', border: 'none' }}
+                        title="New SHAP Force Plot"
+                        seamless 
+                      />
+                    </div>
+                  </div>
+                  
+                  {/* Feature Contribution (Yeni) */}
+                  {!hideUpdatedFeatures && (
+                    <div className="bg-panel rounded-2xl border border-blue-900/50 p-6 shadow-sm">
+                      <div className="flex justify-between items-center mb-4 border-b border-white/20 pb-2">
+                        <h3 className="text-lg font-semibold text-white">
+                          Feature Contribution
+                        </h3>
+                        <button
+                          onClick={() => downloadShapJSON(newFeaturesWithShap, 'updated')}
+                          className="inline-flex items-center gap-2 bg-brand-600 hover:bg-brand-700 text-white px-4 py-2 rounded-lg font-medium transition-colors text-sm"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+                          Download JSON
+                        </button>
+                      </div>
+                      <div className="max-h-60 overflow-y-auto space-y-2 pr-2">
+                        {newFeaturesWithShap.map((feature) => (
+                          <div key={feature.name} className="flex justify-between items-center bg-gray-800 p-3 rounded-lg">
+                            <div>
+                              <span className="font-medium text-white">{feature.name}</span>
+                              <span className="text-sm text-gray-400 ml-2">(Value: {feature.value.toFixed(2)})</span>
+                            </div>
+                            <span className={`font-bold text-lg ${feature.shap > 0 ? 'text-red-400' : 'text-blue-400'}`}>
+                              {feature.shap > 0 ? '+' : ''}{feature.shap.toFixed(3)}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
