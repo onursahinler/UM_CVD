@@ -1,6 +1,4 @@
-// AssessmentForm.tsx (TÜM MANTIK BURADA)
-
-"use client"; // YENİ: 'useState' ve 'useCallback' için gerekli
+"use client";
 
 import { useState, useCallback, memo } from 'react';
 import { Stepper } from '@/components/Stepper';
@@ -11,14 +9,15 @@ import { LaboratoryStep } from '@/components/steps/LaboratoryStep';
 import { TreatmentStep } from '@/components/steps/TreatmentStep';
 import { ModelStep } from '@/components/steps/ModelStep';
 import { SummaryStep } from '@/components/steps/SummaryStep';
-
-// YENİ: ResultsStep ve API tipini import et
+// YENİ: ResultsStep ve ApiResult tipini import et
 import { ResultsStep, ApiResult } from '@/components/steps/ResultsStep'; 
-
 import { PatientForm, FormErrors } from '@/types';
 import { ASSESSMENT_STEPS, STEPPER_STEPS, PANEL_TITLES } from '@/constants/steps';
-// 'validateStep' importu kaldırıldı, `validate` prop'u kullanılacak
 
+// YENİ: ApiResult'ın 'status' ve 'message' alanlarını da içermesi için tip tanımı
+type ApiResultWithError = ApiResult | { status: "error"; message: string };
+
+// ... (AssessmentFormProps interface'i aynı kalıyor) ...
 interface AssessmentFormProps {
   form: PatientForm;
   errors: FormErrors;
@@ -28,9 +27,14 @@ interface AssessmentFormProps {
   onGenerateId: () => void;
   onModelSelect: (modelId: string) => void;
   onTkiTypeChange: (value: string | number) => void;
-  onComplete: () => void; // Bu prop artık kullanılmayacak ama yerinde kalabilir
+  onComplete: () => void;
   validate: (activeIndex: number) => boolean;
 }
+
+// --- YENİ: API'ye gönderilecek düz veri formatının tipi ---
+// Bu, hem orijinal analiz hem de "what-if" analizi için kullanılacak
+export type FlatPatientData = Record<string, number | null>;
+
 
 const AssessmentForm = memo(({
   form,
@@ -41,116 +45,127 @@ const AssessmentForm = memo(({
   onGenerateId,
   onModelSelect,
   onTkiTypeChange,
-  onComplete, // Kullanılmayacak
+  onComplete,
   validate,
 }: AssessmentFormProps) => {
   const [activeIndex, setActiveIndex] = useState(0);
 
-  // --- YENİ API STATE'LERİ ---
+  // --- API STATE'LERİ GÜNCELLENDİ ---
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [apiResult, setApiResult] = useState<ApiResult | null>(null);
+  // 'apiResult' adını 'originalApiResult' olarak değiştiriyoruz
+  const [originalApiResult, setOriginalApiResult] = useState<ApiResult | null>(null);
+  // Orijinal verinin düz halini de saklayacağız
+  const [originalFlatData, setOriginalFlatData] = useState<FlatPatientData | null>(null);
   // ---------------------------
 
 
-  // --- YENİ API ÇAĞRISI FONKSİYONU ---
-  const handleFinish = async () => {
-    // Son adımda tekrar validasyon yap
-    if (!validate(activeIndex)) return; 
-
+  // --- YENİ: YENİDEN KULLANILABİLİR ANALİZ FONKSİYONU ---
+  // API çağırma mantığını 'goNext' içinden çıkarıp buraya taşıdık.
+  // Bu fonksiyon artık 'ResultsStep'e prop olarak aktarılacak.
+  const runAnalysis = async (dataToAnalyze: FlatPatientData): Promise<ApiResult | null> => {
     setIsLoading(true);
     setError(null);
-    setApiResult(null);
-
-    // SummaryStep'teki 'exportObj' ile aynı mantık
-    // Modelin beklemediği "Full name" ve "Patient ID" alanlarını ÇIKARIYORUZ.
-    const exportObj = {
-      anchor_age: form.anchor_age ? parseFloat(form.anchor_age) : null,
-      "White Blood Cells": form.whiteBloodCells ? parseFloat(form.whiteBloodCells) : null,
-      "Urea Nitrogen": form.ureaNitrogen ? parseFloat(form.ureaNitrogen) : null,
-      Neutrophils: form.neutrophils ? parseFloat(form.neutrophils) : null, // (SP) API'nizdeki 'Neutrophils' olmalı
-      BMI: form.bmi ? parseFloat(form.bmi) : null,
-      Monocytes: form.monocytes ? parseFloat(form.monocytes) : null,
-      Glucose: form.glucose ? parseFloat(form.glucose) : null,
-      systolic: form.systolic ? parseFloat(form.systolic) : null,
-      MCH: form.mch ? parseFloat(form.mch) : null,
-      "Calcium, Total": form.calciumTotal ? parseFloat(form.calciumTotal) : null,
-      Lymphocytes: form.lymphocytes ? parseFloat(form.lymphocytes) : null,
-      Creatinine: form.creatinine ? parseFloat(form.creatinine) : null,
-      Sodium: form.sodium ? parseFloat(form.sodium) : null,
-      diastolic: form.diastolic ? parseFloat(form.diastolic) : null,
-      PT: form.pt ? parseFloat(form.pt) : null,
-      imatinib_dose: form.tkiDoses?.imatinib ?? 0,
-      dasatinib_dose: form.tkiDoses?.dasatinib ?? 0,
-      gender_encoded: typeof form.gender === 'number' ? form.gender : null,
-      nilotinib_dose: form.tkiDoses?.nilotinib ?? 0,
-      ponatinib_dose: form.tkiDoses?.ponatinib ?? 0,
-      ruxolitinib_dose: form.tkiDoses?.ruxolitinib ?? 0,
-    };
     
-    // (SP) DİKKAT: 'exportObj' içindeki "Neutrifils" isminin app.py'deki
-    // FEATURE_ORDER listesindeki "Neutrophils" ile eşleştiğinden emin olun.
-    // Eşleşmiyorsa burayı düzeltin.
-
     try {
       const API_URL = "http://localhost:5000/api/predict";
-
       const response = await fetch(API_URL, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(exportObj),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(dataToAnalyze),
       });
 
-      const data = await response.json();
+      const data: ApiResultWithError = await response.json();
 
       if (data.status === 'success') {
-        setApiResult(data); // Sonucu state'e kaydet
+        setIsLoading(false);
+        // Başarılı sonucu döndür
+        return data as ApiResult; 
       } else {
         setError(data.message || 'Modelden bilinmeyen bir hata alındı.');
+        setIsLoading(false);
+        return null;
       }
 
     } catch (err) {
       console.error(err);
       setError('Sunucuya bağlanılamadı. Backend (app.py) çalışıyor mu?');
-    } finally {
       setIsLoading(false);
+      return null;
     }
   };
   // ---------------------------------
-
-  const goNext = useCallback(() => {
-    // GÜNCELLENDİ: 4. adımdaysa `onComplete` YERİNE `handleFinish`'i çağır
+  
+  // --- 'goNext' FONKSİYONU GÜNCELLENDİ ---
+  const goNext = useCallback(async () => {
+    // 4. adımdaysa 'runAnalysis' fonksiyonunu çağır
     if (activeIndex === 4) {
-      handleFinish();
+      if (!validate(activeIndex)) return;
+      
+      // API'ye göndermek için veriyi düz objeye çevir
+      const flatData: FlatPatientData = {
+        anchor_age: form.anchor_age ? parseFloat(form.anchor_age) : null,
+        "White Blood Cells": form.whiteBloodCells ? parseFloat(form.whiteBloodCells) : null,
+        "Urea Nitrogen": form.ureaNitrogen ? parseFloat(form.ureaNitrogen) : null,
+        "Neutrophils": form.neutrophils ? parseFloat(form.neutrophils) : null,
+        BMI: form.bmi ? parseFloat(form.bmi) : null,
+        Monocytes: form.monocytes ? parseFloat(form.monocytes) : null,
+        Glucose: form.glucose ? parseFloat(form.glucose) : null,
+        systolic: form.systolic ? parseFloat(form.systolic) : null,
+        MCH: form.mch ? parseFloat(form.mch) : null,
+        "Calcium, Total": form.calciumTotal ? parseFloat(form.calciumTotal) : null,
+        Lymphocytes: form.lymphocytes ? parseFloat(form.lymphocytes) : null,
+        Creatinine: form.creatinine ? parseFloat(form.creatinine) : null,
+        Sodium: form.sodium ? parseFloat(form.sodium) : null,
+        diastolic: form.diastolic ? parseFloat(form.diastolic) : null,
+        PT: form.pt ? parseFloat(form.pt) : null,
+        imatinib_dose: form.tkiDoses?.imatinib ?? 0,
+        dasatinib_dose: form.tkiDoses?.dasatinib ?? 0,
+        gender_encoded: typeof form.gender === 'number' ? form.gender : null,
+        nilotinib_dose: form.tkiDoses?.nilotinib ?? 0,
+        ponatinib_dose: form.tkiDoses?.ponatinib ?? 0,
+        ruxolitinib_dose: form.tkiDoses?.ruxolitinib ?? 0,
+      };
+
+      const result = await runAnalysis(flatData); // YENİ fonksiyonu çağır
+      
+      if (result) {
+        setOriginalApiResult(result); // Orijinal sonucu ayarla
+        setOriginalFlatData(flatData); // Orijinal veriyi ayarla
+      }
+      // 'onComplete' prop'u artık kullanılmıyor, 'apiResult' state'i render'ı tetikliyor
       return;
     }
+    
+    // Diğer adımlar için
     if (!validate(activeIndex)) return;
     setActiveIndex((i) => Math.min(i + 1, ASSESSMENT_STEPS.length - 1));
-  }, [activeIndex, validate, handleFinish]); // handleFinish'i bağımlılığa ekle
+  }, [activeIndex, validate, form, runAnalysis]); // 'form' ve 'runAnalysis' bağımlılıklara eklendi
 
   const goPrev = useCallback(() => {
     setActiveIndex((i) => Math.max(i - 1, 0));
   }, []);
 
-  // YENİ: Sonuç ekranından geriye dönmek için
-  const handleBackFromResult = () => {
-    setApiResult(null); // Sonucu temizle
+  // 'ResultsStep'ten geri dönmek için
+  const handleBackFromResults = () => {
+    setOriginalApiResult(null); // Sonucu temizle
+    setOriginalFlatData(null);
     setError(null);
-    // Özet ekranına (activeIndex 4) geri dön
-    setActiveIndex(ASSESSMENT_STEPS.length - 1); 
+    setActiveIndex(4); // Özet ekranına (activeIndex 4) geri dön
   };
 
   const renderStep = () => {
     
     // --- YENİ KONTROL ---
-    // Eğer API sonucu varsa, diğer tüm adımları atla ve ResultsStep'i göster
-    if (apiResult) {
+    // Eğer Orijinal API sonucu varsa, ResultsStep'i göster
+    if (originalApiResult && originalFlatData) {
       return (
         <ResultsStep
-          result={apiResult}
-          onBack={handleBackFromResult}
+          // YENİ PROPLAR:
+          originalResult={originalApiResult}
+          originalFlatData={originalFlatData}
+          onRunAnalysis={runAnalysis} // API fonksiyonunu iletiyoruz
+          onBack={handleBackFromResults}
           patientId={form.patientId || ""}
         />
       );
@@ -160,7 +175,6 @@ const AssessmentForm = memo(({
 
     switch (activeIndex) {
       case 0:
-        // ... (değişiklik yok) ...
         return (
           <>
             <PatientInfoStep
@@ -186,7 +200,6 @@ const AssessmentForm = memo(({
         );
 
       case 1:
-        // ... (değişiklik yok) ...
         return (
           <LaboratoryStep
             form={{
@@ -208,7 +221,6 @@ const AssessmentForm = memo(({
         );
 
       case 2:
-        // ... (değişiklik yok) ...
         return (
           <TreatmentStep
             form={{
@@ -223,7 +235,6 @@ const AssessmentForm = memo(({
         );
 
       case 3:
-        // ... (değişiklik yok) ...
         return (
           <ModelStep
             form={{ model: form.model }}
@@ -233,11 +244,10 @@ const AssessmentForm = memo(({
         );
 
       case 4:
-        // GÜNCELLENDİ: SummaryStep'e `error` prop'unu geçir
         return (
           <SummaryStep 
             form={form}
-            error={error} // Hata mesajını özet ekranına yolla
+            error={error} 
           />
         );
 
@@ -246,24 +256,22 @@ const AssessmentForm = memo(({
     }
   };
 
-  // Panel başlığını `apiResult` durumuna göre ayarla
-  const panelTitle = apiResult 
+  // Panel başlığını 'apiResult' durumuna göre ayarla
+  const panelTitle = originalApiResult
     ? "Analysis Results" 
     : PANEL_TITLES[activeIndex as keyof typeof PANEL_TITLES] || "Step";
 
   return (
     <main className="mx-auto max-w-7xl px-6 py-8 grid grid-cols-1 lg:grid-cols-[360px_1fr] gap-6">
-      {/* Progress bar */}
       {/* GÜNCELLENDİ: Sonuç ekranındayken progress bar'ı gizle */}
-      {!apiResult && (
+      {!originalApiResult && (
         <section className="lg:col-span-2">
           <SegmentedProgress steps={ASSESSMENT_STEPS} activeIndex={activeIndex} />
         </section>
       )}
 
-      {/* Sidebar Steps */}
       {/* GÜNCELLENDİ: Sonuç ekranındayken sidebar'ı gizle */}
-      {!apiResult && (
+      {!originalApiResult && (
         <aside>
           <div className="mb-3 text-sm font-semibold text-foreground/80">Assessment Steps</div>
           <Stepper
@@ -274,14 +282,20 @@ const AssessmentForm = memo(({
       )}
       
       {/* GÜNCELLENDİ: Sonuç ekranındayken tam genişlik kullan */}
-      <section className={`bg-panel rounded-2xl p-6 shadow-sm ${apiResult ? 'lg:col-span-2' : ''}`}>
-        <h2 className="font-display text-3xl mb-4">{panelTitle}</h2>
+      <section className={`bg-panel rounded-2xl p-6 shadow-sm ${originalApiResult ? 'lg:col-span-2' : ''}`}>
+        
+        {/* GÜNCELLENDİ: Başlık artık 'renderStep' içinde değil, burada */}
+        {/* 'ResultsStep' kendi başlığını (Header) yönetecek */}
+        {!originalApiResult && (
+           <h2 className="font-display text-3xl mb-4">{panelTitle}</h2>
+        )}
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {renderStep()}
         </div>
 
         {/* GÜNCELLENDİ: Sonuç ekranındayken butonları gizle */}
-        {!apiResult && (
+        {!originalApiResult && (
           <div className="flex justify-end gap-3 pt-6">
             {activeIndex > 0 && (
               <button 
@@ -293,10 +307,9 @@ const AssessmentForm = memo(({
             )}
             <button 
               onClick={goNext} 
-              disabled={isLoading} // YENİ: Yüklenirken butonu devre dışı bırak
+              disabled={isLoading} // Yüklenirken butonu devre dışı bırak
               className="rounded-pill bg-brand-600 hover:bg-brand-700 text-white px-6 py-3 font-semibold flex items-center disabled:opacity-50"
             >
-              {/* YENİ: Yüklenme göstergesi */}
               {isLoading && (
                 <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
