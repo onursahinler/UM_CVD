@@ -87,6 +87,7 @@ export function ResultsStep({
   const [editableData, setEditableData] = useState<FlatPatientData>(originalFlatData);
   const [newApiResult, setNewApiResult] = useState<ApiResult | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [progress, setProgress] = useState(0);
   const [hideOriginalFeatures, setHideOriginalFeatures] = useState(false);
   const [hideUpdatedFeatures, setHideUpdatedFeatures] = useState(false);
   // --- STATE'LER BİTTİ ---
@@ -173,12 +174,41 @@ export function ResultsStep({
   // --- Diğer Fonksiyonlar (Aynı Kaldı) ---
   const handleUpdateAnalysis = async () => {
     setIsLoading(true);
+    setProgress(0);
     setNewApiResult(null); 
-    const result = await onRunAnalysis(editableData);
-    if (result) {
-      setNewApiResult(result);
+    
+    // Progress bar animation
+    const progressInterval = setInterval(() => {
+      setProgress(prev => {
+        if (prev >= 90) return prev; // Stop at 90% until API call completes
+        return prev + Math.random() * 15; // Random increment between 0-15
+      });
+    }, 200);
+
+    try {
+      const result = await onRunAnalysis(editableData);
+      
+      // Complete the progress bar
+      setProgress(100);
+      clearInterval(progressInterval);
+      
+      if (result) {
+        setNewApiResult(result);
+      }
+      
+      // Small delay to show 100% completion
+      setTimeout(() => {
+        setIsLoading(false);
+        setProgress(0);
+      }, 500);
+      
+    } catch (error) {
+      clearInterval(progressInterval);
+      setTimeout(() => {
+        setIsLoading(false);
+        setProgress(0);
+      }, 500);
     }
-    setIsLoading(false);
   };
   
   const downloadShapJSON = (dataToDownload: typeof originalFeaturesWithShap, type: 'original' | 'updated') => {
@@ -249,8 +279,12 @@ export function ResultsStep({
             <h3 className="text-2xl font-bold text-gray-800 mb-2">Updating Analysis</h3>
             <p className="text-gray-600 mb-4">Processing your what-if scenario changes...</p>
             <div className="w-full bg-gray-200 rounded-full h-2">
-              <div className="bg-blue-600 h-2 rounded-full animate-pulse" style={{width: '60%'}}></div>
+              <div 
+                className="bg-blue-600 h-2 rounded-full transition-all duration-300 ease-out" 
+                style={{width: `${Math.min(progress, 100)}%`}}
+              ></div>
             </div>
+            <p className="text-sm text-gray-500 mt-2">{Math.round(progress)}% Complete</p>
             <p className="text-sm text-gray-500 mt-2">This may take a few moments</p>
           </div>
         </div>

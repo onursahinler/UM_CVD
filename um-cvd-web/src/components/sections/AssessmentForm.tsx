@@ -53,6 +53,7 @@ const AssessmentForm = memo(({
   // --- API STATE'LERİ GÜNCELLENDİ ---
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [progress, setProgress] = useState(0);
   // 'apiResult' adını 'originalApiResult' olarak değiştiriyoruz
   const [originalApiResult, setOriginalApiResult] = useState<ApiResult | null>(null);
   // Orijinal verinin düz halini de saklayacağız
@@ -66,7 +67,16 @@ const AssessmentForm = memo(({
   const runAnalysis = async (dataToAnalyze: FlatPatientData): Promise<ApiResult | null> => {
     setIsLoading(true);
     setError(null);
+    setProgress(0);
     
+    // Progress bar animation
+    const progressInterval = setInterval(() => {
+      setProgress(prev => {
+        if (prev >= 90) return prev; // Stop at 90% until API call completes
+        return prev + Math.random() * 15; // Random increment between 0-15
+      });
+    }, 200);
+
     try {
       const API_URL = "http://localhost:5000/api/predict";
       const response = await fetch(API_URL, {
@@ -77,20 +87,35 @@ const AssessmentForm = memo(({
 
       const data: ApiResultWithError = await response.json();
 
+      // Complete the progress bar
+      setProgress(100);
+      clearInterval(progressInterval);
+
       if (data.status === 'success') {
-        setIsLoading(false);
+        // Small delay to show 100% completion
+        setTimeout(() => {
+          setIsLoading(false);
+          setProgress(0);
+        }, 500);
         // Başarılı sonucu döndür
         return data as ApiResult; 
       } else {
         setError(data.message || 'Modelden bilinmeyen bir hata alındı.');
-        setIsLoading(false);
+        setTimeout(() => {
+          setIsLoading(false);
+          setProgress(0);
+        }, 500);
         return null;
       }
 
     } catch (err) {
       console.error(err);
       setError('Sunucuya bağlanılamadı. Backend (app.py) çalışıyor mu?');
-      setIsLoading(false);
+      clearInterval(progressInterval);
+      setTimeout(() => {
+        setIsLoading(false);
+        setProgress(0);
+      }, 500);
       return null;
     }
   };
@@ -276,8 +301,12 @@ const AssessmentForm = memo(({
             <h3 className="text-2xl font-bold text-gray-800 mb-2">Analyzing Patient Data</h3>
             <p className="text-gray-600 mb-4">Please wait while our AI model processes the information...</p>
             <div className="w-full bg-gray-200 rounded-full h-2">
-              <div className="bg-blue-600 h-2 rounded-full animate-pulse" style={{width: '60%'}}></div>
+              <div 
+                className="bg-blue-600 h-2 rounded-full transition-all duration-300 ease-out" 
+                style={{width: `${Math.min(progress, 100)}%`}}
+              ></div>
             </div>
+            <p className="text-sm text-gray-500 mt-2">{Math.round(progress)}% Complete</p>
             <p className="text-sm text-gray-500 mt-2">This may take a few moments</p>
           </div>
         </div>
