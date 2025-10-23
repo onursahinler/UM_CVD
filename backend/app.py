@@ -109,6 +109,50 @@ def predict():
             "message": str(e)
         }), 500
 
+# --- 4.1. Basit Tahmin Endpoint'ini Oluştur ---
+@app.route('/api/predict-simple', methods=['POST'])
+def predict_simple():
+    try:
+        # 0. Simulated processing time (3-4 seconds)
+        processing_time = random.uniform(3.0, 4.0)
+        print(f"Processing simple prediction request... (simulated time: {processing_time:.1f}s)")
+        time.sleep(processing_time)
+        
+        # 1. Veri alma
+        input_json = request.get_json()
+
+        # 2. DataFrame oluşturma
+        input_data_list = []
+        for feature in FEATURE_ORDER:
+            input_data_list.append(input_json.get(feature, None)) 
+        input_df = pd.DataFrame([input_data_list], columns=FEATURE_ORDER)
+
+        # 3. Veri Ön İşleme
+        imputed_array = loaded_imputer.transform(input_df.values)
+        imputed_df = pd.DataFrame(imputed_array, columns=FEATURE_ORDER)
+        scaled_array = loaded_scaler.transform(imputed_df)
+        scaled_df = pd.DataFrame(scaled_array, columns=FEATURE_ORDER)
+
+        # 4. Sadece Tahmin (SHAP hesaplama yok)
+        explanation = loaded_explainer(scaled_df)
+        prediction_probability = explanation.base_values[0, 1] + explanation.values[0, :, 1].sum()
+
+        # 5. Basit JSON yanıtı
+        response = {
+            "status": "success",
+            "prediction": float(prediction_probability)
+        }
+        return jsonify(response)
+
+    except Exception as e:
+        print(f"HATA OLUŞTU (Simple): {e}") 
+        import traceback
+        traceback.print_exc() 
+        return jsonify({
+            "status": "error",
+            "message": str(e)
+        }), 500
+
 # --- 5. Sunucuyu Başlat ---
 if __name__ == '__main__':
     # 'host="0.0.0.0"' dışarıdan erişime izin verir (geliştirme için)
