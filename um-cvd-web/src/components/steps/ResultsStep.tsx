@@ -197,7 +197,13 @@ export function ResultsStep({
         // Add new result to the beginning of array, keep max 4 results
         setUpdatedResults(prev => {
           const newArray = [result, ...prev];
-          return newArray.slice(0, 4); // Keep only first 4 results
+          const finalArray = newArray.slice(0, 4); // Keep only first 4 results
+          
+          // Hide ALL updated results' features by default (all indices)
+          const newHiddenSet = new Set(Array.from({ length: finalArray.length }, (_, i) => i));
+          setHideUpdatedFeatures(newHiddenSet);
+          
+          return finalArray;
         });
       }
       
