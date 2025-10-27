@@ -258,9 +258,38 @@ export function ResultsStep({
     })).sort((a, b) => Math.abs(b.shap) - Math.abs(a.shap));
   }, [newApiResult]); 
   
-  const featuresForSidebar = useMemo(() => 
-    Object.entries(editableData).sort((a, b) => a[0].localeCompare(b[0])),
-  [editableData]);
+  // --- Kategorize edilmiş feature'lar ---
+  const categorizedFeatures = useMemo(() => {
+    const categories = {
+      demographics: ['anchor_age', 'gender_encoded', 'BMI', 'diastolic', 'systolic'],
+      laboratory: ['White Blood Cells', 'Urea Nitrogen', 'Neutrophils', 'Monocytes', 'Glucose', 'MCH', 'Calcium, Total', 'Lymphocytes', 'Creatinine', 'Sodium', 'PT'],
+      treatment: ['imatinib_dose', 'dasatinib_dose', 'nilotinib_dose', 'ponatinib_dose', 'ruxolitinib_dose']
+    };
+
+    const result: Record<string, Array<[string, number | null]>> = {
+      'Demographics & Health': [],
+      'Laboratory Tests': [],
+      'Treatment & Analysis': []
+    };
+
+    // Her feature'ı ilgili kategorisine ekle
+    Object.entries(editableData).forEach(([name, value]) => {
+      if (categories.demographics.includes(name)) {
+        result['Demographics & Health'].push([name, value]);
+      } else if (categories.laboratory.includes(name)) {
+        result['Laboratory Tests'].push([name, value]);
+      } else if (categories.treatment.includes(name)) {
+        result['Treatment & Analysis'].push([name, value]);
+      }
+    });
+
+    // Kategorileri sırala
+    result['Demographics & Health'].sort((a, b) => a[0].localeCompare(b[0]));
+    result['Laboratory Tests'].sort((a, b) => a[0].localeCompare(b[0]));
+    result['Treatment & Analysis'].sort((a, b) => a[0].localeCompare(b[0]));
+
+    return result;
+  }, [editableData]);
   // --- HESAPLAMALAR BİTTİ ---
 
 
@@ -298,79 +327,89 @@ export function ResultsStep({
           <h3 className="text-lg font-semibold text-white mb-4 border-b border-white/20 pb-2">
             Patient Data (What-If)
           </h3>
-          <div className="max-h-[70vh] overflow-y-auto space-y-3 pr-2"> 
+          <div className="max-h-[70vh] overflow-y-auto space-y-4 pr-2"> 
             
-            {featuresForSidebar.map(([name, value]) => {
-              const isDecimal = DECIMAL_FEATURES.includes(name);
-              const step = isDecimal ? 0.1 : 1;
-              const isNonNegative = NON_NEGATIVE_FEATURES.includes(name);
+            {Object.entries(categorizedFeatures).map(([categoryTitle, features]) => (
+              <div key={categoryTitle} className="space-y-2">
+                {/* Kategori Başlığı */}
+                <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wide">
+                  {categoryTitle}
+                </h4>
+                
+                {/* Kategori içindeki feature'lar */}
+                {features.map(([name, value]) => {
+                  const isDecimal = DECIMAL_FEATURES.includes(name);
+                  const step = isDecimal ? 0.1 : 1;
+                  const isNonNegative = NON_NEGATIVE_FEATURES.includes(name);
 
-              return (
-                <div 
-                  key={name} 
-                  className="bg-gray-800 p-3 rounded-lg flex flex-col" 
-                >
-                  {/* Özellik Adı */}
-                  <label className="font-medium text-white text-sm mb-2 w-full truncate" title={name}> 
-                    {name} {name === 'gender_encoded' ? '(0: M, 1: F)' : ''}
-                  </label>
-                  
-                  {/* Kontroller */}
-                  {name === 'gender_encoded' ? (
-                    // Gender için Input ve Toggle Butonu
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="number"
-                        id={name}
-                        name={name}
-                        value={value ?? ''} 
-                        onChange={(e) => handleInputChange(name, e.target.value)}
-                        min="0"
-                        max="1"
-                        step="1" // Sadece 0 ve 1
-                        className="flex-1 bg-gray-700 text-white p-1 rounded-md text-sm text-center border border-gray-600 focus:outline-none focus:ring-1 focus:ring-blue-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" // Hide number arrows
-                      />
-                       <button 
-                        onClick={() => handleDataChange(name, 'toggle')}
-                        className="bg-gray-600 hover:bg-gray-500 text-white p-1 px-2 rounded-md text-sm border border-gray-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                        title="Toggle Gender"
-                      >
-                        Toggle
-                      </button>
+                  return (
+                    <div 
+                      key={name} 
+                      className="bg-gray-800 p-3 rounded-lg flex flex-col" 
+                    >
+                      {/* Özellik Adı */}
+                      <label className="font-medium text-white text-sm mb-2 w-full truncate" title={name}> 
+                        {name} {name === 'gender_encoded' ? '(0: M, 1: F)' : ''}
+                      </label>
+                      
+                      {/* Kontroller */}
+                      {name === 'gender_encoded' ? (
+                        // Gender için Input ve Toggle Butonu
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="number"
+                            id={name}
+                            name={name}
+                            value={value ?? ''} 
+                            onChange={(e) => handleInputChange(name, e.target.value)}
+                            min="0"
+                            max="1"
+                            step="1" // Sadece 0 ve 1
+                            className="flex-1 bg-gray-700 text-white p-1 rounded-md text-sm text-center border border-gray-600 focus:outline-none focus:ring-1 focus:ring-blue-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" // Hide number arrows
+                          />
+                           <button 
+                            onClick={() => handleDataChange(name, 'toggle')}
+                            className="bg-gray-600 hover:bg-gray-500 text-white p-1 px-2 rounded-md text-sm border border-gray-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                            title="Toggle Gender"
+                          >
+                            Toggle
+                          </button>
+                        </div>
+                      ) : (
+                        // Diğerleri için +/- Butonları ve Input Alanı
+                        <div className="flex justify-between items-center w-full gap-2">
+                          <button 
+                            onClick={() => handleDataChange(name, isDecimal ? adjustDecimal(value, -step) : adjustInteger(value, -step))}
+                            className="bg-red-600 hover:bg-red-700 text-white font-bold w-6 h-6 rounded-full flex items-center justify-center focus:outline-none disabled:opacity-50 flex-shrink-0"
+                            aria-label={`Decrease ${name}`}
+                            disabled={isNonNegative && (value === null || value <= 0)} // Negatifse veya null ise devre dışı
+                          >
+                            -
+                          </button>
+                          <input
+                            type="number"
+                            step={isDecimal ? "0.1" : "1"}
+                            id={name}
+                            name={name}
+                            value={value ?? ''} 
+                            onChange={(e) => handleInputChange(name, e.target.value)}
+                            min={isNonNegative ? "0" : undefined} // Negatif olamazsa min=0
+                            className="flex-grow bg-gray-700 text-white w-16 rounded-md text-sm text-center border border-gray-600 focus:outline-none focus:ring-1 focus:ring-blue-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" // Hide number arrows
+                          />
+                          <button 
+                            onClick={() => handleDataChange(name, isDecimal ? adjustDecimal(value, step) : adjustInteger(value, step))}
+                            className="bg-green-600 hover:bg-green-700 text-white font-bold w-6 h-6 rounded-full flex items-center justify-center focus:outline-none flex-shrink-0"
+                            aria-label={`Increase ${name}`}
+                          >
+                            +
+                          </button>
+                        </div>
+                      )}
                     </div>
-                  ) : (
-                    // Diğerleri için +/- Butonları ve Input Alanı
-                    <div className="flex justify-between items-center w-full gap-2">
-                      <button 
-                        onClick={() => handleDataChange(name, isDecimal ? adjustDecimal(value, -step) : adjustInteger(value, -step))}
-                        className="bg-red-600 hover:bg-red-700 text-white font-bold w-6 h-6 rounded-full flex items-center justify-center focus:outline-none disabled:opacity-50 flex-shrink-0"
-                        aria-label={`Decrease ${name}`}
-                        disabled={isNonNegative && (value === null || value <= 0)} // Negatifse veya null ise devre dışı
-                      >
-                        -
-                      </button>
-                      <input
-                        type="number"
-                        step={isDecimal ? "0.1" : "1"}
-                        id={name}
-                        name={name}
-                        value={value ?? ''} 
-                        onChange={(e) => handleInputChange(name, e.target.value)}
-                        min={isNonNegative ? "0" : undefined} // Negatif olamazsa min=0
-                        className="flex-grow bg-gray-700 text-white w-16 rounded-md text-sm text-center border border-gray-600 focus:outline-none focus:ring-1 focus:ring-blue-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" // Hide number arrows
-                      />
-                      <button 
-                        onClick={() => handleDataChange(name, isDecimal ? adjustDecimal(value, step) : adjustInteger(value, step))}
-                        className="bg-green-600 hover:bg-green-700 text-white font-bold w-6 h-6 rounded-full flex items-center justify-center focus:outline-none flex-shrink-0"
-                        aria-label={`Increase ${name}`}
-                      >
-                        +
-                      </button>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
+                  );
+                })}
+              </div>
+            ))}
             
           </div>
           
