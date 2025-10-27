@@ -41,10 +41,6 @@ export default function Home() {
                 <div className="text-xs uppercase tracking-wide">Accuracy Rate</div>
               </div>
               <div className="text-center">
-                <div className="text-3xl sm:text-4xl font-bold">2319</div>
-                <div className="text-xs uppercase tracking-wide">Patients Assessed</div>
-              </div>
-              <div className="text-center">
                 <div className="text-3xl sm:text-4xl font-bold">24/7</div>
                 <div className="text-xs uppercase tracking-wide">Available</div>
               </div>

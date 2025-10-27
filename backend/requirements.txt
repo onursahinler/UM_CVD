@@ -1,6 +1,8 @@
 flask
 flask-cors
 joblib==1.4.2
+python-dotenv
+openai
 
 numpy<2.0           
 pandas==2.2.3        

@@ -8,6 +8,19 @@ import os
 import io
 import time
 import random
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
+
+# Try to import OpenAI
+try:
+    from openai import OpenAI
+    HAS_OPENAI = True
+    client = OpenAI(api_key=os.getenv('OPENAI_API_KEY')) if os.getenv('OPENAI_API_KEY') else None
+except ImportError:
+    HAS_OPENAI = False
+    client = None
 # --- 1. Uygulamayı Başlat ve CORS'u Aktif Et ---
 # (CORS, Next.js'in (localhost:3000) bu API (localhost:5000) ile konuşmasına izin verir)
 app = Flask(__name__)
@@ -152,6 +165,126 @@ def predict_simple():
             "status": "error",
             "message": str(e)
         }), 500
+
+# --- 4.5. Chatbot Endpoint ---
+@app.route('/api/chat', methods=['POST'])
+def chat():
+    try:
+        data = request.get_json()
+        user_message = data.get('message', '')
+        context = data.get('context', {})
+        
+        # Patient data ve risk skorundan context oluştur
+        risk_score = context.get('riskScore', 'N/A')
+        patient_data = context.get('patientData', {})
+        shap_values = context.get('shapValues', None)
+        
+        # Generate AI response using OpenAI or rule-based system
+        response_text = generate_chat_response(user_message, risk_score, patient_data, shap_values)
+        
+        return jsonify({
+            "status": "success",
+            "response": response_text
+        })
+        
+    except Exception as e:
+        print(f"Chat error: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            "status": "error",
+            "message": str(e)
+        }), 500
+
+def generate_chat_response(user_message: str, risk_score: str, patient_data: dict, shap_values=None) -> str:
+    """Generate chatbot response using OpenAI API if available, otherwise use rule-based system"""
+    
+    # If OpenAI is available and API key is set, use it
+    if client and HAS_OPENAI:
+        try:
+            # Build context from patient data
+            context_summary = build_patient_context(risk_score, patient_data, shap_values)
+            
+            # Create system prompt for CVD analysis expert
+            system_prompt = """You are a highly skilled cardiovascular disease (CVD) risk analysis assistant. 
+You provide expert analysis and guidance based on patient risk scores, laboratory values, and SHAP feature importance.
+
+When analyzing CVD risk:
+- Consider risk categories: Low (<50%), Moderate (50-70%), High (>70%)
+- Provide specific, actionable medical recommendations
+- Explain which factors contribute most to the risk
+- Suggest appropriate interventions based on risk level
+- Be professional and evidence-based in your responses
+
+Always provide concise, actionable insights that help healthcare providers make informed decisions."""
+
+            response = client.chat.completions.create(
+                model="gpt-3.5-turbo",
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": f"Patient Analysis Context:\n{context_summary}\n\nUser Question: {user_message}"}
+                ],
+                max_tokens=500,
+                temperature=0.7
+            )
+            
+            return response.choices[0].message.content.strip()
+        except Exception as e:
+            print(f"OpenAI API error: {e}")
+            # Fallback to rule-based system
+            pass
+    
+    # Rule-based fallback (or default when OpenAI not available)
+    message_lower = user_message.lower()
+    
+    # Risk score questions
+    if 'risk' in message_lower or 'risk score' in message_lower:
+        score = float(risk_score) if risk_score != 'N/A' else 0
+        if score > 70:
+            return f"The patient's CVD risk score is {risk_score}%, indicating HIGH risk. This requires immediate monitoring and intervention. Recommendations: Regular ECG, cardiac enzyme monitoring, and consideration for emergency department evaluation."
+        elif score > 50:
+            return f"The patient's CVD risk score is {risk_score}%, indicating MODERATE risk. Routine follow-up and lifestyle modifications are recommended. Lipid profile, ECG, and physical activity assessment should be conducted."
+        else:
+            return f"The patient's CVD risk score is {risk_score}%, indicating LOW risk. Routine health screenings and preventive measures are sufficient."
+    
+    # SHAP values
+    if 'contribution' in message_lower or 'importance' in message_lower or 'shap' in message_lower or 'feature' in message_lower:
+        return "SHAP values show how each feature contributes to the risk prediction. Positive values increase risk, while negative values decrease it. Patient management can be optimized by prioritizing features with the highest contribution."
+    
+    # Laboratory values
+    if 'laboratory' in message_lower or 'lab' in message_lower or 'blood' in message_lower:
+        return "Laboratory values play a critical role in CVD risk assessment. Lipid profiles (cholesterol, LDL, HDL), inflammatory markers, and organ function tests are particularly important. Abnormal values can increase risk factors."
+    
+    # General health recommendations
+    if 'advice' in message_lower or 'recommendation' in message_lower or 'suggest' in message_lower or 'what should' in message_lower:
+        score = float(risk_score) if risk_score != 'N/A' else 0
+        if score > 70:
+            return "HIGH RISK patient recommendations: Urgent cardiologist consultation, statin therapy evaluation, aspirin prophylaxis, smoking cessation program, dietary and lifestyle modifications. Patient should seek immediate medical attention for any chest pain or shortness of breath."
+        elif score > 50:
+            return "MODERATE RISK patient recommendations: Regular lipid monitoring, at least 150 minutes of moderate-intensity physical activity per week, Mediterranean diet, smoking cessation, routine cardiovascular assessment."
+        else:
+            return "LOW RISK patient recommendations: Annual health screening, balanced diet, regular physical activity, blood pressure monitoring, and lifestyle modifications."
+    
+    # Default response
+    return f"Based on the CVD risk analysis results (Risk Score: {risk_score}%), I can help you understand: risk interpretation, laboratory value analysis, SHAP feature importance, and treatment recommendations. What would you like to know more about?"
+
+def build_patient_context(risk_score: str, patient_data: dict, shap_values=None) -> str:
+    """Build a human-readable summary of patient context for the AI"""
+    context = f"CVD Risk Score: {risk_score}%\n\n"
+    
+    # Add patient demographics
+    if 'anchor_age' in patient_data:
+        context += f"Age: {patient_data.get('anchor_age')}\n"
+    if 'gender_encoded' in patient_data:
+        gender = "Male" if patient_data.get('gender_encoded') == 0 else "Female"
+        context += f"Gender: {gender}\n"
+    if 'BMI' in patient_data:
+        context += f"BMI: {patient_data.get('BMI')}\n"
+    
+    context += "\n---\n"
+    context += "\nI can analyze: risk interpretation, laboratory values, SHAP contributions, and provide treatment recommendations."
+    
+    return context
 
 # --- 5. Sunucuyu Başlat ---
 if __name__ == '__main__':
