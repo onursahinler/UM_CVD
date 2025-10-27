@@ -194,16 +194,28 @@ export function ResultsStep({
       clearInterval(progressInterval);
       
       if (result) {
-        // Add new result to the beginning of array, keep max 4 results
         setUpdatedResults(prev => {
-          const newArray = [result, ...prev];
-          const finalArray = newArray.slice(0, 4); // Keep only first 4 results
+          const currentCount = prev.length;
           
-          // Hide ALL updated results' features by default (all indices)
-          const newHiddenSet = new Set(Array.from({ length: finalArray.length }, (_, i) => i));
-          setHideUpdatedFeatures(newHiddenSet);
-          
-          return finalArray;
+          // If we already have 4 results, replace the oldest one (last in array)
+          if (currentCount >= 4) {
+            // Remove the last (oldest) element and add new one at the beginning
+            const updatedArray = [result, ...prev.slice(0, 3)];
+            
+            // All plots are hidden by default
+            setHideUpdatedFeatures(new Set([0, 1, 2, 3]));
+            
+            return updatedArray;
+          } else {
+            // Add new result to the beginning
+            const newArray = [result, ...prev];
+            
+            // Hide ALL updated results' features by default (all indices)
+            const newHiddenSet = new Set(Array.from({ length: newArray.length }, (_, i) => i));
+            setHideUpdatedFeatures(newHiddenSet);
+            
+            return newArray;
+          }
         });
       }
       
