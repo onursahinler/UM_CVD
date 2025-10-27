@@ -86,11 +86,11 @@ export function ResultsStep({
 
   // --- STATE'LER ---
   const [editableData, setEditableData] = useState<FlatPatientData>(originalFlatData);
-  const [newApiResult, setNewApiResult] = useState<ApiResult | null>(null);
+  const [updatedResults, setUpdatedResults] = useState<ApiResult[]>([]); // Updated results history (max 4)
   const [isLoading, setIsLoading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [hideOriginalFeatures, setHideOriginalFeatures] = useState(true);
-  const [hideUpdatedFeatures, setHideUpdatedFeatures] = useState(true);
+  const [hideUpdatedFeatures, setHideUpdatedFeatures] = useState(new Set<number>()); // Set of hidden indices
   const [isChatOpen, setIsChatOpen] = useState(false);
   // --- STATE'LER BİTTİ ---
 
@@ -177,7 +177,6 @@ export function ResultsStep({
   const handleUpdateAnalysis = async () => {
     setIsLoading(true);
     setProgress(0);
-    setNewApiResult(null); 
     
     // Progress bar animation
     const progressInterval = setInterval(() => {
@@ -195,7 +194,11 @@ export function ResultsStep({
       clearInterval(progressInterval);
       
       if (result) {
-        setNewApiResult(result);
+        // Add new result to the beginning of array, keep max 4 results
+        setUpdatedResults(prev => {
+          const newArray = [result, ...prev];
+          return newArray.slice(0, 4); // Keep only first 4 results
+        });
       }
       
       // Small delay to show 100% completion
@@ -250,15 +253,18 @@ export function ResultsStep({
     })).sort((a, b) => Math.abs(b.shap) - Math.abs(a.shap)),
   [originalResult]); 
 
-  const newRiskScore = newApiResult ? (newApiResult.prediction * 100).toFixed(2) : "0.00";
-  const newFeaturesWithShap = useMemo(() => {
-    if (!newApiResult) return [];
-    return newApiResult.feature_names.map((name, index) => ({
-      name: name,
-      value: newApiResult.feature_values[index],
-      shap: newApiResult.shap_values[index]
-    })).sort((a, b) => Math.abs(b.shap) - Math.abs(a.shap));
-  }, [newApiResult]); 
+  // Calculate features with SHAP for each updated result
+  const updatedResultsWithShap = useMemo(() => 
+    updatedResults.map(result => ({
+      riskScore: (result.prediction * 100).toFixed(2),
+      featuresWithShap: result.feature_names.map((name, index) => ({
+        name: name,
+        value: result.feature_values[index],
+        shap: result.shap_values[index]
+      })).sort((a, b) => Math.abs(b.shap) - Math.abs(a.shap)),
+      result: result
+    })),
+  [updatedResults]); 
   
   // --- Kategorize edilmiş feature'lar ---
   const categorizedFeatures = useMemo(() => {
@@ -456,24 +462,26 @@ export function ResultsStep({
         {/* --- KARŞILAŞTIRMA BÖLÜMÜ (Alt Alta) --- */}
         <div className="grid grid-cols-1 gap-8"> 
             
-            {/* --- YENİ SONUÇ BÖLÜMÜ (Koşullu - ÜSTTE) --- */}
-            {newApiResult && (
-              <div className="space-y-6">
-                <h3 className="text-xl font-bold text-white text-center border-b border-gray-700 pb-2 mb-4">Updated Results</h3>
+            {/* --- UPDATED RESULTS (Birden fazla olabilir, max 4) --- */}
+            {updatedResultsWithShap.map((updated, index) => (
+              <div key={index} className="space-y-6">
+                <h3 className="text-xl font-bold text-white text-center border-b border-gray-700 pb-2 mb-4">
+                  Updated Results #{index + 1}
+                </h3>
 
-                {/* Prediction Score (Yeni) */}
+                {/* Prediction Score */}
                 <div className="bg-panel rounded-2xl border border-blue-900/50 p-4 shadow-sm text-center">
                   <h3 className="text-base font-semibold text-gray-300 mb-2">
                     CVD Risk Score
                   </h3>
-                  <p className={`text-4xl font-bold ${parseFloat(newRiskScore) > 50 ? 'text-red-400' : 'text-green-400'}`}>
-                    {newRiskScore}%
+                  <p className={`text-4xl font-bold ${parseFloat(updated.riskScore) > 50 ? 'text-red-400' : 'text-green-400'}`}>
+                    {updated.riskScore}%
                   </p>
                 </div>
 
                 {/* SHAP Plot ve Feature Contribution (Yan Yana) */}
-                <div className={`grid gap-6 ${hideUpdatedFeatures ? 'grid-cols-1' : 'grid-cols-1 lg:grid-cols-2'}`}>
-                  {/* SHAP Force Plot (Yeni) */}
+                <div className={`grid gap-6 ${hideUpdatedFeatures.has(index) ? 'grid-cols-1' : 'grid-cols-1 lg:grid-cols-2'}`}>
+                  {/* SHAP Force Plot */}
                   <div className="bg-panel rounded-2xl border border-blue-900/50 p-6 shadow-sm">
                     <div className="flex justify-between items-center mb-4 border-b border-white/20 pb-2">
                       <h3 className="text-lg font-semibold text-white">
@@ -481,7 +489,7 @@ export function ResultsStep({
                       </h3>
                       <div className="flex gap-2">
                         <button
-                          onClick={() => downloadShapHTML(newApiResult.shap_html, 'updated')}
+                          onClick={() => downloadShapHTML(updated.result.shap_html, 'updated')}
                           className="inline-flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded-lg font-medium transition-colors text-sm"
                           title="Download SHAP Plot as HTML"
                         >
@@ -491,43 +499,51 @@ export function ResultsStep({
                           Download HTML
                         </button>
                         <button
-                          onClick={() => setHideUpdatedFeatures(!hideUpdatedFeatures)}
+                          onClick={() => {
+                            const newSet = new Set(hideUpdatedFeatures);
+                            if (newSet.has(index)) {
+                              newSet.delete(index);
+                            } else {
+                              newSet.add(index);
+                            }
+                            setHideUpdatedFeatures(newSet);
+                          }}
                           className="inline-flex items-center gap-2 bg-gray-600 hover:bg-gray-700 text-white px-3 py-1 rounded-lg font-medium transition-colors text-sm"
-                          title={hideUpdatedFeatures ? "Show Feature Contribution" : "Hide Feature Contribution"}
+                          title={hideUpdatedFeatures.has(index) ? "Show Feature Contribution" : "Hide Feature Contribution"}
                         >
                           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            {hideUpdatedFeatures ? (
+                            {hideUpdatedFeatures.has(index) ? (
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                             ) : (
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.878 9.878L3 3m6.878 6.878L21 21" />
                             )}
                           </svg>
-                          {hideUpdatedFeatures ? 'Show Features' : 'Hide Features'}
+                          {hideUpdatedFeatures.has(index) ? 'Show Features' : 'Hide Features'}
                         </button>
                       </div>
                     </div>
                     <p className="text-sm text-gray-300 mb-4">
-                      Base Value: {newApiResult.base_value.toFixed(3)}
+                      Base Value: {updated.result.base_value.toFixed(3)}
                     </p>
                     <div className="bg-white rounded-lg overflow-x-auto overflow-y-hidden p-0">
                       <iframe
-                        srcDoc={newApiResult.shap_html}
+                        srcDoc={updated.result.shap_html}
                         style={{ width: '1100px', minWidth: '500px', height: '150px', border: 'none' }}
-                        title="New SHAP Force Plot"
+                        title={`Updated SHAP Force Plot #${index + 1}`}
                         seamless 
                       />
                     </div>
                   </div>
                   
-                  {/* Feature Contribution (Yeni) */}
-                  {!hideUpdatedFeatures && (
+                  {/* Feature Contribution */}
+                  {!hideUpdatedFeatures.has(index) && (
                     <div className="bg-panel rounded-2xl border border-blue-900/50 p-6 shadow-sm">
                       <div className="flex justify-between items-center mb-4 border-b border-white/20 pb-2">
                         <h3 className="text-lg font-semibold text-white">
                           Feature Contribution
                         </h3>
                         <button
-                          onClick={() => downloadShapJSON(newFeaturesWithShap, 'updated')}
+                          onClick={() => downloadShapJSON(updated.featuresWithShap, 'updated')}
                           className="inline-flex items-center gap-2 bg-brand-600 hover:bg-brand-700 text-white px-4 py-2 rounded-lg font-medium transition-colors text-sm"
                         >
                           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
@@ -535,7 +551,7 @@ export function ResultsStep({
                         </button>
                       </div>
                       <div className="max-h-60 overflow-y-auto space-y-2 pr-2">
-                        {newFeaturesWithShap.map((feature) => (
+                        {updated.featuresWithShap.map((feature) => (
                           <div key={feature.name} className="flex justify-between items-center bg-gray-800 p-3 rounded-lg">
                             <div>
                               <span className="font-medium text-white">{feature.name}</span>
@@ -551,7 +567,7 @@ export function ResultsStep({
                   )}
                 </div>
               </div>
-            )}
+            ))}
             
             {/* --- ORİJİNAL SONUÇ BÖLÜMÜ (AltTA) --- */}
             <div className="space-y-6">
