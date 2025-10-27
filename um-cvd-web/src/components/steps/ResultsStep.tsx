@@ -90,7 +90,7 @@ export function ResultsStep({
   const [isLoading, setIsLoading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [hideOriginalFeatures, setHideOriginalFeatures] = useState(true);
-  const [hideUpdatedFeatures, setHideUpdatedFeatures] = useState(new Set<number>()); // Set of hidden indices
+  const [hideUpdatedFeatures, setHideUpdatedFeatures] = useState(new Set<number>([])); // Set of hidden indices - all hidden by default
   const [isChatOpen, setIsChatOpen] = useState(false);
   // --- STATE'LER BİTTİ ---
 
@@ -463,10 +463,14 @@ export function ResultsStep({
         <div className="grid grid-cols-1 gap-8"> 
             
             {/* --- UPDATED RESULTS (Birden fazla olabilir, max 4) --- */}
-            {updatedResultsWithShap.map((updated, index) => (
+            {updatedResultsWithShap.map((updated, index) => {
+              // Calculate display number (most recent = 1, oldest = highest number)
+              const displayNumber = updatedResultsWithShap.length - index;
+              
+              return (
               <div key={index} className="space-y-6">
                 <h3 className="text-xl font-bold text-white text-center border-b border-gray-700 pb-2 mb-4">
-                  Updated Results #{index + 1}
+                  Updated Results #{displayNumber}
                 </h3>
 
                 {/* Prediction Score */}
@@ -567,7 +571,8 @@ export function ResultsStep({
                   )}
                 </div>
               </div>
-            ))}
+              );
+            })}
             
             {/* --- ORİJİNAL SONUÇ BÖLÜMÜ (AltTA) --- */}
             <div className="space-y-6">
