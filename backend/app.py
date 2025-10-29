@@ -11,6 +11,24 @@ import random
 import sys
 from pathlib import Path
 
+# Load environment variables from .env file if it exists
+try:
+    from dotenv import load_dotenv
+    # Load .env file from backend directory
+    env_path = Path(__file__).parent / '.env'
+    if env_path.exists():
+        load_dotenv(env_path)
+        print(f"Loaded environment variables from {env_path}")
+    else:
+        # Also try project root
+        root_env = Path(__file__).parent.parent / '.env'
+        if root_env.exists():
+            load_dotenv(root_env)
+            print(f"Loaded environment variables from {root_env}")
+except ImportError:
+    # python-dotenv not installed, skip .env loading
+    pass
+
 # Add XAIagent_code to path
 XAI_AGENT_DIR = Path(__file__).parent / "XAIagent_code"
 sys.path.insert(0, str(XAI_AGENT_DIR))
