@@ -712,6 +712,11 @@ export function ResultsStep({
       patientData={editableData}
       riskScore={originalRiskScore}
       shapValues={originalFeaturesWithShap}
+      updatedResults={updatedResultsWithShap.map(updated => ({
+        riskScore: updated.riskScore,
+        featuresWithShap: updated.featuresWithShap,
+        patientData: editableData // Current editable data
+      }))}
     />
     </>
   );

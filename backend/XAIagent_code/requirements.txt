@@ -1,0 +1,18 @@
+# CVD Agent System Requirements
+
+# Core dependencies from CML_CVD_Model
+pandas==2.2.3
+numpy==1.24.4
+scikit-learn==1.6.1
+joblib==1.4.2
+shap==0.48.0
+
+# OpenAI for LLM-based agents
+openai>=1.0.0
+
+# Optional: For enhanced functionality
+python-dotenv==1.0.1  # For managing API keys
+
+# Streamlit UI
+streamlit>=1.28.0
+plotly>=5.18.0  # For interactive visualizations

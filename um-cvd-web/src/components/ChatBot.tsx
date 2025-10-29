@@ -7,15 +7,22 @@ interface Message {
   content: string;
 }
 
+interface UpdatedResult {
+  riskScore: string;
+  featuresWithShap: Array<{ name: string; value: number; shap: number }>;
+  patientData?: any;
+}
+
 interface ChatBotProps {
   isOpen: boolean;
   onClose: () => void;
   patientData: any;
   riskScore: string;
   shapValues?: any;
+  updatedResults?: UpdatedResult[];
 }
 
-export function ChatBot({ isOpen, onClose, patientData, riskScore, shapValues }: ChatBotProps) {
+export function ChatBot({ isOpen, onClose, patientData, riskScore, shapValues, updatedResults }: ChatBotProps) {
   const [messages, setMessages] = useState<Message[]>([
     {
       role: "assistant",
@@ -52,6 +59,7 @@ export function ChatBot({ isOpen, onClose, patientData, riskScore, shapValues }:
         riskScore,
         patientData,
         shapValues,
+        updatedResults: updatedResults || [],
         conversation: messages
       };
 

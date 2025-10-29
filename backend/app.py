@@ -8,10 +8,28 @@ import os
 import io
 import time
 import random
+import sys
+from pathlib import Path
+
+# Add XAIagent_code to path
+XAI_AGENT_DIR = Path(__file__).parent / "XAIagent_code"
+sys.path.insert(0, str(XAI_AGENT_DIR))
+
+# Import orchestrator
+try:
+    from orchestrator import CVDAgentOrchestrator
+    XAI_AGENT_AVAILABLE = True
+except ImportError as e:
+    print(f"Warning: XAI Agent System not available: {e}")
+    XAI_AGENT_AVAILABLE = False
+
 # --- 1. Uygulamayı Başlat ve CORS'u Aktif Et ---
 # (CORS, Next.js'in (localhost:3000) bu API (localhost:5000) ile konuşmasına izin verir)
 app = Flask(__name__)
 CORS(app)
+
+# Initialize XAI Agent Orchestrator (lazy loading on first chat request)
+xai_orchestrator = None
 
 # --- 2. Modelleri ve Gerekli Bilgileri Yükle ---
 # (Modeller sadece sunucu başladığında 1 kez yüklenir, bu çok verimlidir)
@@ -153,7 +171,114 @@ def predict_simple():
             "message": str(e)
         }), 500
 
-# --- 4.5. Chatbot Endpoint ---
+# --- 4.5. Chatbot Endpoint with XAI Agent Integration ---
+def get_orchestrator():
+    """Initialize orchestrator lazily on first use"""
+    global xai_orchestrator
+    if xai_orchestrator is None and XAI_AGENT_AVAILABLE:
+        try:
+            api_key = os.getenv("OPENAI_API_KEY")
+            xai_orchestrator = CVDAgentOrchestrator(openai_api_key=api_key)
+            print("XAI Agent Orchestrator initialized successfully")
+        except Exception as e:
+            print(f"Error initializing XAI Orchestrator: {e}")
+            return None
+    return xai_orchestrator
+
+def prepare_patient_data_from_context(context):
+    """Convert frontend context to patient data dictionary for orchestrator"""
+    patient_data = context.get('patientData', {})
+    
+    # If patient_data is already in the right format, return it
+    if isinstance(patient_data, dict) and patient_data:
+        # Ensure all values are floats
+        return {k: float(v) if v is not None else None for k, v in patient_data.items()}
+    
+    return {}
+
+def prepare_shap_values_from_context(context):
+    """Convert frontend shapValues to dictionary format"""
+    shap_values = context.get('shapValues', {})
+    
+    # If shapValues is an array of objects (e.g., [{name, value, shap}, ...])
+    if isinstance(shap_values, list):
+        shap_dict = {}
+        for item in shap_values:
+            if isinstance(item, dict) and 'name' in item and 'shap' in item:
+                shap_dict[item['name']] = float(item['shap'])
+        return shap_dict
+    
+    # If shapValues is already a dictionary, return it
+    if isinstance(shap_values, dict):
+        return {k: float(v) if v is not None else 0.0 for k, v in shap_values.items()}
+    
+    return {}
+
+def prepare_updated_results_from_context(context):
+    """Convert frontend updatedResults to a list of prediction results"""
+    updated_results = context.get('updatedResults', [])
+    
+    if not isinstance(updated_results, list):
+        return []
+    
+    formatted_results = []
+    for result in updated_results:
+        try:
+            # Extract risk score and convert to probability
+            risk_score_str = result.get('riskScore', '')
+            risk_score = float(risk_score_str) if risk_score_str else 0.0
+            if risk_score > 1:
+                risk_score = risk_score / 100.0
+            
+            # Extract SHAP values from featuresWithShap
+            shap_values = {}
+            features_with_shap = result.get('featuresWithShap', [])
+            for feature in features_with_shap:
+                if isinstance(feature, dict) and 'name' in feature and 'shap' in feature:
+                    shap_values[feature['name']] = float(feature['shap'])
+            
+            # Get patient data
+            patient_data = result.get('patientData', {})
+            if isinstance(patient_data, dict):
+                patient_data = {k: float(v) if v is not None else None for k, v in patient_data.items()}
+            
+            formatted_results.append({
+                "risk_score": risk_score,
+                "risk_level": "High" if risk_score > 0.7 else ("Moderate" if risk_score > 0.3 else "Low"),
+                "shap_values": shap_values,
+                "feature_values": patient_data
+            })
+        except (ValueError, TypeError, KeyError) as e:
+            print(f"Error formatting updated result: {e}")
+            continue
+    
+    return formatted_results
+
+def analyze_message_intent(message: str) -> str:
+    """Analyze user message to determine which agent to use"""
+    message_lower = message.lower()
+    
+    # Keywords for different agents
+    explanation_keywords = ['explain', 'why', 'how', 'what does', 'understand', 'meaning']
+    intervention_keywords = ['recommend', 'suggest', 'what should', 'action', 'plan', 'intervention', 'treatment', 'advice']
+    knowledge_keywords = ['what is', 'tell me about', 'define', 'information', 'learn']
+    
+    # Check for explanation requests
+    if any(kw in message_lower for kw in explanation_keywords):
+        if 'shap' in message_lower or 'contribution' in message_lower or 'factor' in message_lower:
+            return 'explanation'
+    
+    # Check for intervention requests
+    if any(kw in message_lower for kw in intervention_keywords):
+        return 'intervention'
+    
+    # Check for knowledge requests
+    if any(kw in message_lower for kw in knowledge_keywords):
+        return 'knowledge'
+    
+    # Default to knowledge agent for general questions
+    return 'knowledge'
+
 @app.route('/api/chat', methods=['POST'])
 def chat():
     try:
@@ -161,17 +286,143 @@ def chat():
         user_message = data.get('message', '')
         context = data.get('context', {})
         
-        # Patient data ve risk skorundan context oluştur
-        risk_score = context.get('riskScore', 'N/A')
-        patient_data = context.get('patientData', {})
+        # Try to use XAI Agent System if available
+        orchestrator = get_orchestrator()
         
-        # Mock AI response - Basit kural tabanlı sistem
-        response_text = generate_chat_response(user_message, risk_score, patient_data)
-        
-        return jsonify({
-            "status": "success",
-            "response": response_text
-        })
+        if orchestrator and XAI_AGENT_AVAILABLE:
+            # Prepare patient data from context
+            patient_data = prepare_patient_data_from_context(context)
+            
+            # Prepare updated results (what-if scenarios)
+            updated_results = prepare_updated_results_from_context(context)
+            
+            # If we have patient data, analyze it first (or use cached prediction)
+            if patient_data:
+                # Check if we need to run a new prediction
+                risk_score_str = context.get('riskScore', '')
+                shap_values = prepare_shap_values_from_context(context)
+                
+                # If we have prediction results, create a prediction result dict
+                if risk_score_str and risk_score_str != 'N/A':
+                    try:
+                        # Convert risk score from percentage to probability if needed
+                        risk_score = float(risk_score_str) if isinstance(risk_score_str, str) else risk_score_str
+                        # If risk_score is > 1, it's likely a percentage, convert to probability
+                        if risk_score > 1:
+                            risk_score = risk_score / 100.0
+                        
+                        if not orchestrator.current_prediction:
+                            # Create prediction result from context
+                            orchestrator.current_prediction = {
+                                "risk_score": risk_score,
+                                "risk_level": "High" if risk_score > 0.7 else ("Moderate" if risk_score > 0.3 else "Low"),
+                                "shap_values": shap_values if shap_values else {},
+                                "feature_values": patient_data
+                            }
+                            orchestrator.current_patient_data = patient_data
+                    except (ValueError, TypeError) as e:
+                        print(f"Error processing risk score: {e}")
+                        pass
+            
+            # Store updated results in orchestrator for comparison queries
+            if updated_results:
+                # Store as a class attribute so agents can access it
+                orchestrator.updated_scenarios = updated_results
+            else:
+                orchestrator.updated_scenarios = []
+            
+            # Determine which agent to use based on message intent
+            intent = analyze_message_intent(user_message)
+            
+            try:
+                # Check if user is asking about comparisons or what-if scenarios
+                message_lower = user_message.lower()
+                is_comparison_query = any(kw in message_lower for kw in [
+                    'compare', 'difference', 'better', 'worse', 'change', 'updated', 
+                    'what-if', 'scenario', 'second', 'third', 'fourth', 'alternative'
+                ])
+                
+                # If user asks about comparisons and we have updated scenarios
+                if is_comparison_query and updated_results and orchestrator.current_prediction:
+                    if orchestrator.explanation_agent:
+                        # Compare original with most recent updated result
+                        latest_updated = updated_results[-1]
+                        comparison = orchestrator.explanation_agent.compare_predictions(
+                            orchestrator.current_prediction,
+                            latest_updated,
+                            label1="Original Analysis",
+                            label2=f"Updated Scenario {len(updated_results)}"
+                        )
+                        response_text = comparison
+                    else:
+                        response_text = orchestrator.ask_question(user_message)
+                elif intent == 'explanation' and orchestrator.current_prediction:
+                    # Use explanation agent
+                    if orchestrator.explanation_agent:
+                        # Include updated scenarios context if available
+                        if updated_results:
+                            explanation = orchestrator.explanation_agent.explain_prediction(
+                                orchestrator.current_prediction,
+                                detail_level="moderate"
+                            )
+                            # Add note about available comparisons
+                            response_text = f"{explanation}\n\nNote: You have {len(updated_results)} what-if scenario(s) available. Ask me to compare them with the original analysis to see how changes affect the risk."
+                        else:
+                            explanation = orchestrator.explanation_agent.explain_prediction(
+                                orchestrator.current_prediction,
+                                detail_level="moderate"
+                            )
+                            response_text = explanation
+                    else:
+                        response_text = orchestrator.ask_question(user_message)
+                elif intent == 'intervention' and orchestrator.current_prediction:
+                    # Use intervention agent
+                    if orchestrator.intervention_agent:
+                        # If we have updated results, use the most recent for better recommendations
+                        prediction_for_intervention = updated_results[-1] if updated_results else orchestrator.current_prediction
+                        interventions = orchestrator.intervention_agent.suggest_interventions(
+                            prediction_for_intervention,
+                            top_n=5
+                        )
+                        response_text = interventions
+                    else:
+                        response_text = orchestrator.ask_question(user_message)
+                else:
+                    # Use knowledge agent for general questions
+                    # Include updated scenarios info in context
+                    context_for_question = {
+                        "prediction": orchestrator.current_prediction,
+                        "patient_data": orchestrator.current_patient_data,
+                        "updated_scenarios_count": len(updated_results) if updated_results else 0
+                    }
+                    response_text = orchestrator.knowledge_agent.answer_question(user_message, context_for_question) if orchestrator.knowledge_agent else orchestrator.ask_question(user_message)
+                
+                return jsonify({
+                    "status": "success",
+                    "response": response_text
+                })
+            except Exception as e:
+                print(f"XAI Agent error: {e}")
+                import traceback
+                traceback.print_exc()
+                # Fall back to simple response generator
+                risk_score = context.get('riskScore', 'N/A')
+                patient_data = context.get('patientData', {})
+                response_text = generate_chat_response(user_message, risk_score, patient_data)
+                return jsonify({
+                    "status": "success",
+                    "response": response_text
+                })
+        else:
+            # Fall back to simple rule-based system
+            risk_score = context.get('riskScore', 'N/A')
+            patient_data = context.get('patientData', {})
+            response_text = generate_chat_response(user_message, risk_score, patient_data)
+            
+            return jsonify({
+                "status": "success",
+                "response": response_text
+            })
         
     except Exception as e:
         print(f"Chat error: {e}")

@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//Users/changsun/Library/CloudStorage/OneDrive-MaastrichtUniversity/ResearchProject/CharmTwinSight/CML_CVD_Model/**)",
+      "Bash(python test_installation.py:*)",
+      "Bash(/Library/Frameworks/Python.framework/Versions/3.9/bin/python3:*)",
+      "Bash(pip install:*)",
+      "Bash(python3 -m pip install:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
