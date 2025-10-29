@@ -20,6 +20,7 @@ export default function Dashboard() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [predictionResult, setPredictionResult] = useState<PredictionResult | null>(null);
+  const [isShowingResults, setIsShowingResults] = useState(false);
   
   const searchParams = useSearchParams();
   const { clearSavedForm } = useFormContext();
@@ -183,7 +184,10 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen w-full flex flex-col">
-      <HeroSection onFileUpload={handleFileUploadWithReset} />
+      <HeroSection 
+        onFileUpload={handleFileUploadWithReset}
+        hideUploadButton={isShowingResults}
+      />
       
       <AssessmentForm
         form={form}
@@ -196,6 +200,7 @@ export default function Dashboard() {
         onTkiTypeChange={handleTkiTypeChange}
         onComplete={handleComplete}
         validate={validate}
+        onResultsStateChange={setIsShowingResults}
       />
 
       <footer className="mt-auto py-8 text-center text-xs text-white/70">

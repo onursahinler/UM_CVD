@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, memo } from 'react';
+import { useState, useCallback, memo, useEffect } from 'react';
 import { Stepper } from '@/components/Stepper';
 import { SegmentedProgress } from '@/components/Progress';
 import { PatientInfoStep } from '@/components/steps/PatientInfoStep';
@@ -30,6 +30,7 @@ interface AssessmentFormProps {
   onTkiTypeChange: (value: string | number) => void;
   onComplete: () => void;
   validate: (activeIndex: number) => boolean;
+  onResultsStateChange?: (isShowingResults: boolean) => void; // Callback to notify parent when results are shown/hidden
 }
 
 // --- YENİ: API'ye gönderilecek düz veri formatının tipi ---
@@ -48,6 +49,7 @@ const AssessmentForm = memo(({
   onTkiTypeChange,
   onComplete,
   validate,
+  onResultsStateChange,
 }: AssessmentFormProps) => {
   const [activeIndex, setActiveIndex] = useState(0);
 
@@ -62,6 +64,12 @@ const AssessmentForm = memo(({
   // Orijinal verinin düz halini de saklayacağız
   const [originalFlatData, setOriginalFlatData] = useState<FlatPatientData | null>(null);
   // ---------------------------
+
+  // Notify parent when results are shown/hidden
+  useEffect(() => {
+    const isShowingResults = !!(originalApiResult || simpleApiResult);
+    onResultsStateChange?.(isShowingResults);
+  }, [originalApiResult, simpleApiResult, onResultsStateChange]);
 
 
   // --- YENİ: YENİDEN KULLANILABİLİR ANALİZ FONKSİYONU ---

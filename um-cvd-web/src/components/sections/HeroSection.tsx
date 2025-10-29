@@ -3,9 +3,10 @@ import { UploadedData } from '@/types';
 
 interface HeroSectionProps {
   onFileUpload: (data: UploadedData) => void;
+  hideUploadButton?: boolean;
 }
 
-const HeroSection = memo(({ onFileUpload }: HeroSectionProps) => {
+const HeroSection = memo(({ onFileUpload, hideUploadButton = false }: HeroSectionProps) => {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -52,28 +53,30 @@ const HeroSection = memo(({ onFileUpload }: HeroSectionProps) => {
             </div>
           </div>
           
-          {/* Upload JSON Button */}
-          <div className="pt-6">
-            <input
-              type="file"
-              accept=".json"
-              onChange={handleFileChange}
-              className="hidden"
-              id="json-upload"
-            />
-            <button
-              onClick={() => document.getElementById('json-upload')?.click()}
-              className="inline-flex items-center gap-3 bg-white/10 hover:bg-white/20 text-white px-6 py-3 rounded-pill font-semibold transition backdrop-blur-sm border border-white/20"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-              </svg>
-              Upload JSON Data
-            </button>
-            <p className="text-white/70 text-sm mt-2">
-              Have patient data in JSON format? Upload it directly to skip manual entry.
-            </p>
-          </div>
+          {/* Upload JSON Button - Hidden on results pages */}
+          {!hideUploadButton && (
+            <div className="pt-6">
+              <input
+                type="file"
+                accept=".json"
+                onChange={handleFileChange}
+                className="hidden"
+                id="json-upload"
+              />
+              <button
+                onClick={() => document.getElementById('json-upload')?.click()}
+                className="inline-flex items-center gap-3 bg-white/10 hover:bg-white/20 text-white px-6 py-3 rounded-pill font-semibold transition backdrop-blur-sm border border-white/20"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                </svg>
+                Upload JSON Data
+              </button>
+              <p className="text-white/70 text-sm mt-2">
+                Have patient data in JSON format? Upload it directly to skip manual entry.
+              </p>
+            </div>
+          )}
         </div>
       </div>
     </header>
