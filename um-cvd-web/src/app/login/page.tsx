@@ -93,27 +93,31 @@ export default function LoginPage() {
         <div className="mx-auto max-w-7xl px-6 py-10">
           <div className="flex flex-col gap-6 sm:gap-8">
             <h1 className="font-display text-5xl sm:text-7xl leading-tight tracking-wide">
-              Doctor
-              <br />
-              Portal
+              Doctor Portal
             </h1>
             <p className="max-w-3xl text-white/90 text-sm sm:text-base">
               Access the advanced AI-powered cardiovascular risk assessment tool 
               for Chronic Myelogenous Leukemia (CML) patients. Secure login for 
               medical professionals.
             </p>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-6 pt-2">
-              <div className="text-center">
-                <div className="text-3xl sm:text-4xl font-bold">96.4%</div>
-                <div className="text-xs uppercase tracking-wide">Accuracy Rate</div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 pt-2">
+              <div className="bg-white/10 hover:bg-white/15 backdrop-blur-sm border border-white/20 rounded-xl p-6 transition-all duration-300 text-left sm:text-center">
+                <div className="text-xl sm:text-2xl font-bold mb-3">Transparent Risk Analysis</div>
+                <div className="text-xs sm:text-sm text-white/80 leading-relaxed">
+                  No "black box". See clearly how factors (BMI, blood pressure, etc.) affect your risk with XAI and SHAP technology.
+                </div>
               </div>
-              <div className="text-center">
-                <div className="text-3xl sm:text-4xl font-bold">24/7</div>
-                <div className="text-xs uppercase tracking-wide">Available</div>
+              <div className="bg-white/10 hover:bg-white/15 backdrop-blur-sm border border-white/20 rounded-xl p-6 transition-all duration-300 text-left sm:text-center">
+                <div className="text-xl sm:text-2xl font-bold mb-3">Proactive Scenario Planning</div>
+                <div className="text-xs sm:text-sm text-white/80 leading-relaxed">
+                  Simulate instantly how changing your values affects risk with "What-If" analysis. Discover the power of your decisions.
+                </div>
               </div>
-              <div className="text-center">
-                <div className="text-3xl sm:text-4xl font-bold">AI</div>
-                <div className="text-xs uppercase tracking-wide">Powered</div>
+              <div className="bg-white/10 hover:bg-white/15 backdrop-blur-sm border border-white/20 rounded-xl p-6 transition-all duration-300 text-left sm:text-center">
+                <div className="text-xl sm:text-2xl font-bold mb-3">Round-the-Clock Access</div>
+                <div className="text-xs sm:text-sm text-white/80 leading-relaxed">
+                  Get instant risk assessments whenever you need them. Available 24/7 for your convenience and peace of mind.
+                </div>
               </div>
             </div>
           </div>
