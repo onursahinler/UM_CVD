@@ -323,24 +323,41 @@ export function ResultsStep({
     <>
       {/* Loading Popup for What-If Analysis */}
       {isLoading && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-2xl p-8 shadow-2xl max-w-md w-full mx-4 text-center">
-            <div className="mb-6">
-              <svg className="animate-spin mx-auto h-16 w-16 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 animate-fade-in">
+          <div className="bg-white/95 backdrop-blur-xl rounded-3xl p-8 shadow-2xl max-w-md w-full mx-4 text-center border border-white/20 animate-scale-in">
+            <div className="mb-6 relative">
+              {/* Outer pulsing circle */}
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="w-20 h-20 rounded-full bg-gradient-to-r from-blue-500/20 to-purple-500/20 animate-pulse"></div>
+              </div>
+              {/* Spinning loader */}
+              <svg className="animate-spin mx-auto h-16 w-16 text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-purple-600 relative z-10" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
               </svg>
             </div>
-            <h3 className="text-2xl font-bold text-gray-800 mb-2">Updating Analysis</h3>
-            <p className="text-gray-600 mb-4">Processing your what-if scenario changes...</p>
-            <div className="w-full bg-gray-200 rounded-full h-2">
+            <h3 className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-purple-600 mb-2">Updating Analysis</h3>
+            <p className="text-gray-600 mb-6">Processing your what-if scenario changes...</p>
+            
+            {/* Enhanced Progress Bar */}
+            <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden shadow-inner mb-3">
               <div 
-                className="bg-blue-600 h-2 rounded-full transition-all duration-300 ease-out" 
+                className="h-3 rounded-full bg-gradient-to-r from-blue-500 via-purple-500 to-blue-600 transition-all duration-500 ease-out relative overflow-hidden shadow-lg" 
                 style={{width: `${Math.min(progress, 100)}%`}}
-              ></div>
+              >
+                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent animate-shimmer"></div>
+              </div>
             </div>
-            <p className="text-sm text-gray-500 mt-2">{Math.round(progress)}% Complete</p>
-            <p className="text-sm text-gray-500 mt-2">This may take a few moments</p>
+            
+            <div className="flex items-center justify-between text-sm mt-4">
+              <p className="text-gray-500 font-medium">{Math.round(progress)}% Complete</p>
+              <div className="flex items-center gap-1 text-gray-400">
+                <div className="w-1 h-1 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                <div className="w-1 h-1 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+                <div className="w-1 h-1 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+              </div>
+            </div>
+            <p className="text-xs text-gray-400 mt-3">This may take a few moments</p>
           </div>
         </div>
       )}
