@@ -11,7 +11,6 @@ import { ModelStep } from '@/components/steps/ModelStep';
 import { SummaryStep } from '@/components/steps/SummaryStep';
 // YENİ: ResultsStep ve ApiResult tipini import et
 import { ResultsStep, ApiResult } from '@/components/steps/ResultsStep';
-import { SimpleResultsStep, SimpleApiResult } from '@/components/steps/SimpleResultsStep'; 
 import { PatientForm, FormErrors } from '@/types';
 import { ASSESSMENT_STEPS, STEPPER_STEPS, PANEL_TITLES } from '@/constants/steps';
 
@@ -59,23 +58,21 @@ const AssessmentForm = memo(({
   const [progress, setProgress] = useState(0);
   // 'apiResult' adını 'originalApiResult' olarak değiştiriyoruz
   const [originalApiResult, setOriginalApiResult] = useState<ApiResult | null>(null);
-  // Basit prediction sonucu için
-  const [simpleApiResult, setSimpleApiResult] = useState<SimpleApiResult | null>(null);
   // Orijinal verinin düz halini de saklayacağız
   const [originalFlatData, setOriginalFlatData] = useState<FlatPatientData | null>(null);
   // ---------------------------
 
   // Notify parent when results are shown/hidden
   useEffect(() => {
-    const isShowingResults = !!(originalApiResult || simpleApiResult);
+    const isShowingResults = !!originalApiResult;
     onResultsStateChange?.(isShowingResults);
-  }, [originalApiResult, simpleApiResult, onResultsStateChange]);
+  }, [originalApiResult, onResultsStateChange]);
 
 
   // --- YENİ: YENİDEN KULLANILABİLİR ANALİZ FONKSİYONU ---
   // API çağırma mantığını 'goNext' içinden çıkarıp buraya taşıdık.
   // Bu fonksiyon artık 'ResultsStep'e prop olarak aktarılacak.
-  const runAnalysis = async (dataToAnalyze: FlatPatientData): Promise<ApiResult | SimpleApiResult | null> => {
+  const runAnalysis = async (dataToAnalyze: FlatPatientData): Promise<ApiResult | null> => {
     setIsLoading(true);
     setError(null);
     setProgress(0);
@@ -89,10 +86,8 @@ const AssessmentForm = memo(({
     }, 200);
 
     try {
-      // Model seçimine göre farklı endpoint kullan
-      const API_URL = form.model === "lr_pred" 
-        ? "http://localhost:5000/api/predict-simple" 
-        : "http://localhost:5000/api/predict";
+      // Use the XAI prediction endpoint
+      const API_URL = "http://localhost:5000/api/predict";
       
       const response = await fetch(API_URL, {
         method: 'POST',
@@ -100,7 +95,7 @@ const AssessmentForm = memo(({
         body: JSON.stringify(dataToAnalyze),
       });
 
-      const data: ApiResultWithError | SimpleApiResult = await response.json();
+      const data: ApiResultWithError = await response.json();
 
       // Complete the progress bar
       setProgress(100);
@@ -113,12 +108,7 @@ const AssessmentForm = memo(({
           setProgress(0);
         }, 500);
         
-        // Model tipine göre farklı state'leri ayarla
-        if (form.model === "lr_pred") {
-          return data as SimpleApiResult;
-        } else {
-          return data as ApiResult;
-        }
+        return data as ApiResult;
       } else {
         setError(data.message || 'Modelden bilinmeyen bir hata alındı.');
         setTimeout(() => {
@@ -175,13 +165,9 @@ const AssessmentForm = memo(({
       const result = await runAnalysis(flatData); // YENİ fonksiyonu çağır
       
       if (result) {
-        // Model tipine göre farklı state'leri ayarla
-        if (form.model === "lr_pred") {
-          setSimpleApiResult(result as SimpleApiResult);
-        } else {
-          setOriginalApiResult(result as ApiResult);
-          setOriginalFlatData(flatData);
-        }
+        // Set the XAI model result
+        setOriginalApiResult(result as ApiResult);
+        setOriginalFlatData(flatData);
       }
       // 'onComplete' prop'u artık kullanılmıyor, 'apiResult' state'i render'ı tetikliyor
       return;
@@ -199,25 +185,12 @@ const AssessmentForm = memo(({
   // 'ResultsStep'ten geri dönmek için
   const handleBackFromResults = () => {
     setOriginalApiResult(null); // Sonucu temizle
-    setSimpleApiResult(null); // Basit sonucu da temizle
     setOriginalFlatData(null);
     setError(null);
     setActiveIndex(4); // Özet ekranına (activeIndex 4) geri dön
   };
 
   const renderStep = () => {
-    
-    // --- YENİ KONTROL ---
-    // Eğer Basit API sonucu varsa, SimpleResultsStep'i göster
-    if (simpleApiResult) {
-      return (
-        <SimpleResultsStep
-          result={simpleApiResult}
-          onBack={handleBackFromResults}
-          patientId={form.patientId || ""}
-        />
-      );
-    }
     
     // Eğer Orijinal API sonucu varsa, ResultsStep'i göster
     if (originalApiResult && originalFlatData) {
@@ -323,7 +296,7 @@ const AssessmentForm = memo(({
   };
 
   // Panel başlığını 'apiResult' durumuna göre ayarla
-  const panelTitle = (originalApiResult || simpleApiResult)
+  const panelTitle = originalApiResult
     ? "Analysis Results" 
     : PANEL_TITLES[activeIndex as keyof typeof PANEL_TITLES] || "Step";
 
@@ -372,14 +345,14 @@ const AssessmentForm = memo(({
 
       <main className="mx-auto max-w-7xl px-6 py-8 grid grid-cols-1 lg:grid-cols-[360px_1fr] gap-6">
       {/* GÜNCELLENDİ: Sonuç ekranındayken progress bar'ı gizle */}
-      {!(originalApiResult || simpleApiResult) && (
+      {!originalApiResult && (
         <section className="lg:col-span-2">
           <SegmentedProgress steps={ASSESSMENT_STEPS} activeIndex={activeIndex} />
         </section>
       )}
 
       {/* GÜNCELLENDİ: Sonuç ekranındayken sidebar'ı gizle */}
-      {!(originalApiResult || simpleApiResult) && (
+      {!originalApiResult && (
         <aside>
           <div className="mb-3 text-sm font-semibold text-foreground/80">Assessment Steps</div>
           <Stepper
@@ -390,11 +363,11 @@ const AssessmentForm = memo(({
       )}
       
       {/* GÜNCELLENDİ: Sonuç ekranındayken tam genişlik kullan */}
-      <section className={`bg-panel rounded-2xl p-6 shadow-sm ${(originalApiResult || simpleApiResult) ? 'lg:col-span-2' : ''}`}>
+      <section className={`bg-panel rounded-2xl p-6 shadow-sm ${originalApiResult ? 'lg:col-span-2' : ''}`}>
         
         {/* GÜNCELLENDİ: Başlık artık 'renderStep' içinde değil, burada */}
         {/* 'ResultsStep' kendi başlığını (Header) yönetecek */}
-        {!(originalApiResult || simpleApiResult) && (
+        {!originalApiResult && (
            <h2 className="font-display text-3xl mb-4">{panelTitle}</h2>
         )}
 
@@ -403,7 +376,7 @@ const AssessmentForm = memo(({
         </div>
 
         {/* GÜNCELLENDİ: Sonuç ekranındayken butonları gizle */}
-        {!(originalApiResult || simpleApiResult) && (
+        {!originalApiResult && (
           <div className="flex justify-end gap-3 pt-6">
             {activeIndex > 0 && (
               <button 

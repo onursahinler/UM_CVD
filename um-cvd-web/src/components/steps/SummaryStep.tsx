@@ -92,8 +92,7 @@ export function SummaryStep({ form, error }: SummaryStepProps) {
         { k: "tkiType", label: "TKI Type" },
         { k: "tkiDose", label: "Dose (mg/day)" },
         { k: "model", label: "Selected Model", transform: (value: string) => {
-          if (value === "lr_pred") return "Logistic Regression (Prediction Only)";
-          if (value === "lr_explain") return "Logistic Regression (With Explainer)";
+          if (value === "rf_xai") return "Random Forest with XAI";
           return value || "-";
         }},
       ]
