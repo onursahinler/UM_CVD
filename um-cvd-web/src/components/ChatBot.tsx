@@ -31,6 +31,7 @@ export function ChatBot({ isOpen, onClose, patientData, riskScore, shapValues, u
   ]);
   const [inputValue, setInputValue] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [useExternalSources, setUseExternalSources] = useState(true); // ON by default
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -60,7 +61,8 @@ export function ChatBot({ isOpen, onClose, patientData, riskScore, shapValues, u
         patientData,
         shapValues,
         updatedResults: updatedResults || [],
-        conversation: messages
+        conversation: messages,
+        useExternalSources: useExternalSources // Add toggle state
       };
 
       const response = await fetch('http://localhost:5000/api/chat', {
@@ -119,14 +121,37 @@ export function ChatBot({ isOpen, onClose, patientData, riskScore, shapValues, u
               <p className="text-xs text-gray-500 font-medium">CVD Risk Analysis Expert</p>
             </div>
           </div>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 transition-colors p-2 rounded-full hover:bg-gray-100"
-          >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
+          <div className="flex items-center gap-3">
+            {/* External Sources Toggle */}
+            <div className="flex items-center gap-2 bg-white/80 backdrop-blur-sm rounded-lg px-3 py-1.5 border border-gray-200/50">
+              <span className="text-xs font-medium text-gray-600">External Sources</span>
+              <button
+                onClick={() => setUseExternalSources(!useExternalSources)}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
+                  useExternalSources ? 'bg-blue-600' : 'bg-gray-300'
+                }`}
+                role="switch"
+                aria-checked={useExternalSources}
+              >
+                <span
+                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                    useExternalSources ? 'translate-x-6' : 'translate-x-1'
+                  }`}
+                />
+              </button>
+              <span className={`text-xs font-semibold ${useExternalSources ? 'text-green-600' : 'text-gray-400'}`}>
+                {useExternalSources ? 'ON' : 'OFF'}
+              </span>
+            </div>
+            <button
+              onClick={onClose}
+              className="text-gray-400 hover:text-gray-600 transition-colors p-2 rounded-full hover:bg-gray-100"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
         </div>
 
         {/* Messages */}

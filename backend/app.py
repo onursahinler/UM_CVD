@@ -196,8 +196,13 @@ def get_orchestrator():
     if xai_orchestrator is None and XAI_AGENT_AVAILABLE:
         try:
             api_key = os.getenv("OPENAI_API_KEY")
-            xai_orchestrator = CVDAgentOrchestrator(openai_api_key=api_key)
-            print("XAI Agent Orchestrator initialized successfully")
+            # Initialize with RAG and PubMed enabled
+            xai_orchestrator = CVDAgentOrchestrator(
+                openai_api_key=api_key,
+                use_rag=True,      # Enable RAG for clinical guidelines
+                use_pubmed=True    # Enable PubMed for scientific articles
+            )
+            print("XAI Agent Orchestrator initialized successfully (with RAG and PubMed)")
         except Exception as e:
             print(f"Error initializing XAI Orchestrator: {e}")
             return None
@@ -304,6 +309,9 @@ def chat():
         user_message = data.get('message', '')
         context = data.get('context', {})
         
+        # Get external sources toggle (default: True if not specified)
+        use_external_sources = context.get('useExternalSources', True)
+        
         # Try to use XAI Agent System if available
         orchestrator = get_orchestrator()
         
@@ -363,6 +371,11 @@ def chat():
                 # If user asks about comparisons and we have updated scenarios
                 if is_comparison_query and updated_results and orchestrator.current_prediction:
                     if orchestrator.explanation_agent:
+                        # Temporarily disable RAG if toggle is OFF
+                        original_use_rag = orchestrator.explanation_agent.use_rag
+                        if not use_external_sources:
+                            orchestrator.explanation_agent.use_rag = False
+                        
                         # Compare original with most recent updated result
                         latest_updated = updated_results[-1]
                         comparison = orchestrator.explanation_agent.compare_predictions(
@@ -372,11 +385,19 @@ def chat():
                             label2=f"Updated Scenario {len(updated_results)}"
                         )
                         response_text = comparison
+                        
+                        # Restore original setting
+                        orchestrator.explanation_agent.use_rag = original_use_rag
                     else:
                         response_text = orchestrator.ask_question(user_message)
                 elif intent == 'explanation' and orchestrator.current_prediction:
                     # Use explanation agent
                     if orchestrator.explanation_agent:
+                        # Temporarily disable RAG if toggle is OFF
+                        original_use_rag = orchestrator.explanation_agent.use_rag
+                        if not use_external_sources:
+                            orchestrator.explanation_agent.use_rag = False
+                        
                         # Include updated scenarios context if available
                         if updated_results:
                             explanation = orchestrator.explanation_agent.explain_prediction(
@@ -391,11 +412,19 @@ def chat():
                                 detail_level="moderate"
                             )
                             response_text = explanation
+                        
+                        # Restore original setting
+                        orchestrator.explanation_agent.use_rag = original_use_rag
                     else:
                         response_text = orchestrator.ask_question(user_message)
                 elif intent == 'intervention' and orchestrator.current_prediction:
                     # Use intervention agent
                     if orchestrator.intervention_agent:
+                        # Temporarily disable RAG if toggle is OFF
+                        original_use_rag = orchestrator.intervention_agent.use_rag
+                        if not use_external_sources:
+                            orchestrator.intervention_agent.use_rag = False
+                        
                         # If we have updated results, use the most recent for better recommendations
                         prediction_for_intervention = updated_results[-1] if updated_results else orchestrator.current_prediction
                         interventions = orchestrator.intervention_agent.suggest_interventions(
@@ -403,6 +432,9 @@ def chat():
                             top_n=5
                         )
                         response_text = interventions
+                        
+                        # Restore original setting
+                        orchestrator.intervention_agent.use_rag = original_use_rag
                     else:
                         response_text = orchestrator.ask_question(user_message)
                 else:
@@ -411,9 +443,22 @@ def chat():
                     context_for_question = {
                         "prediction": orchestrator.current_prediction,
                         "patient_data": orchestrator.current_patient_data,
-                        "updated_scenarios_count": len(updated_results) if updated_results else 0
+                        "updated_scenarios_count": len(updated_results) if updated_results else 0,
+                        "use_external_sources": use_external_sources  # Pass toggle state
                     }
-                    response_text = orchestrator.knowledge_agent.answer_question(user_message, context_for_question) if orchestrator.knowledge_agent else orchestrator.ask_question(user_message)
+                    # Temporarily disable RAG/PubMed if toggle is OFF
+                    if orchestrator.knowledge_agent:
+                        original_use_rag = orchestrator.knowledge_agent.use_rag
+                        original_use_pubmed = orchestrator.knowledge_agent.use_pubmed
+                        if not use_external_sources:
+                            orchestrator.knowledge_agent.use_rag = False
+                            orchestrator.knowledge_agent.use_pubmed = False
+                        response_text = orchestrator.knowledge_agent.answer_question(user_message, context_for_question)
+                        # Restore original settings
+                        orchestrator.knowledge_agent.use_rag = original_use_rag
+                        orchestrator.knowledge_agent.use_pubmed = original_use_pubmed
+                    else:
+                        response_text = orchestrator.ask_question(user_message)
                 
                 return jsonify({
                     "status": "success",

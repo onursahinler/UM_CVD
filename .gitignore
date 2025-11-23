@@ -115,3 +115,7 @@ jspm_packages/
 
 # Stores VSCode versions used for testing VSCode extensions
 .vscode-test
+
+# Vector Database (ChromaDB)
+backend/XAIagent_code/knowledge_base/vector_db/
+!backend/XAIagent_code/knowledge_base/vector_db/.gitkeep
