@@ -125,6 +125,44 @@ export function ChatBot({ isOpen, onClose, patientData, riskScore, shapValues, u
             {/* External Sources Toggle */}
             <div className="flex items-center gap-2 bg-white/80 backdrop-blur-sm rounded-lg px-3 py-1.5 border border-gray-200/50">
               <span className="text-xs font-medium text-gray-600">External Sources</span>
+              
+              {/* Information Icon with Tooltip */}
+              <div className="relative group">
+                <svg 
+                  className="w-4 h-4 text-gray-400 hover:text-blue-500 cursor-help transition-colors" 
+                  fill="none" 
+                  stroke="currentColor" 
+                  viewBox="0 0 24 24"
+                  aria-label="Information about External Sources"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                
+                {/* Tooltip */}
+                <div className="absolute right-0 bottom-full mb-2 w-72 p-3 bg-gray-900 text-white text-xs rounded-lg shadow-2xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 pointer-events-none">
+                  <div className="font-semibold mb-2 text-sm flex items-center gap-2">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    External Sources
+                  </div>
+                  <div className="space-y-2 text-xs leading-relaxed">
+                    <div>
+                      <span className="font-semibold text-green-300">ON:</span>
+                      <span className="ml-1">AI searches clinical guidelines (PDF documents) and PubMed scientific articles. Answers include references with source names and page numbers for verification.</span>
+                    </div>
+                    <div>
+                      <span className="font-semibold text-gray-300">OFF:</span>
+                      <span className="ml-1">AI uses only internal information: patient input values, risk scores, SHAP values, and scenario comparisons. No external searches are performed, providing faster responses based solely on the current patient data.</span>
+                    </div>
+                  </div>
+                  {/* Tooltip Arrow */}
+                  <div className="absolute top-full right-6 -mt-1">
+                    <div className="border-4 border-transparent border-t-gray-900"></div>
+                  </div>
+                </div>
+              </div>
+              
               <button
                 onClick={() => setUseExternalSources(!useExternalSources)}
                 className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
@@ -132,6 +170,7 @@ export function ChatBot({ isOpen, onClose, patientData, riskScore, shapValues, u
                 }`}
                 role="switch"
                 aria-checked={useExternalSources}
+                aria-label={useExternalSources ? 'External sources enabled' : 'External sources disabled'}
               >
                 <span
                   className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
