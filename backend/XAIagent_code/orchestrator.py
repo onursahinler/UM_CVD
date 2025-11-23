@@ -20,12 +20,14 @@ class CVDAgentOrchestrator:
     - InterventionAgent: Suggests actionable interventions
     """
 
-    def __init__(self, openai_api_key: Optional[str] = None):
+    def __init__(self, openai_api_key: Optional[str] = None, use_rag: bool = True, use_pubmed: bool = True):
         """
         Initialize the orchestrator and all agents
 
         Args:
             openai_api_key: OpenAI API key for LLM-based agents
+            use_rag: Whether to use RAG system for clinical guidelines
+            use_pubmed: Whether to use PubMed for scientific articles
         """
         print("Initializing CVD Agent System...")
 
@@ -41,14 +43,14 @@ class CVDAgentOrchestrator:
 
         if openai_api_key:
             try:
-                self.explanation_agent = ExplanationAgent(api_key=openai_api_key)
-                print("✓ Explanation Agent initialized")
+                self.explanation_agent = ExplanationAgent(api_key=openai_api_key, use_rag=use_rag)
+                print("✓ Explanation Agent initialized (with RAG)" if use_rag else "✓ Explanation Agent initialized")
 
-                self.knowledge_agent = KnowledgeAgent(api_key=openai_api_key)
-                print("✓ Knowledge Agent initialized")
+                self.knowledge_agent = KnowledgeAgent(api_key=openai_api_key, use_rag=use_rag, use_pubmed=use_pubmed)
+                print("✓ Knowledge Agent initialized (with RAG and PubMed)" if (use_rag and use_pubmed) else "✓ Knowledge Agent initialized")
 
-                self.intervention_agent = InterventionAgent(api_key=openai_api_key)
-                print("✓ Intervention Agent initialized")
+                self.intervention_agent = InterventionAgent(api_key=openai_api_key, use_rag=use_rag)
+                print("✓ Intervention Agent initialized (with RAG)" if use_rag else "✓ Intervention Agent initialized")
             except Exception as e:
                 print(f"Warning: Could not initialize LLM agents: {e}")
                 print("Prediction-only mode enabled. Set OPENAI_API_KEY for full functionality.")

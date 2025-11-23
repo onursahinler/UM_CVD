@@ -1,9 +1,10 @@
 """
 Explanation Agent - Converts SHAP values to natural language explanations
+Enhanced with RAG (Retrieval-Augmented Generation) from clinical guidelines
 """
 import sys
 from pathlib import Path
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 import json
 
 # OpenAI import
@@ -17,18 +18,27 @@ except ImportError:
 sys.path.append(str(Path(__file__).parent.parent))
 from config import OPENAI_API_KEY, OPENAI_MODEL, FEATURE_INFO
 
+# RAG imports
+try:
+    from knowledge_base.rag_service import RAGService
+    RAG_AVAILABLE = True
+except ImportError:
+    RAG_AVAILABLE = False
+    print("Warning: RAG service not available")
+
 
 class ExplanationAgent:
     """
     Agent responsible for converting SHAP values into understandable natural language explanations
     """
 
-    def __init__(self, api_key: str = None):
+    def __init__(self, api_key: str = None, use_rag: bool = True):
         """
         Initialize the explanation agent
 
         Args:
             api_key: OpenAI API key (defaults to config)
+            use_rag: Whether to use RAG system for clinical guidelines
         """
         if OpenAI is None:
             raise ImportError("OpenAI library not installed")
@@ -40,16 +50,28 @@ class ExplanationAgent:
         self.client = OpenAI(api_key=self.api_key)
         self.model = OPENAI_MODEL
 
+        # Initialize RAG service
+        self.rag_service = None
+        self.use_rag = use_rag and RAG_AVAILABLE
+        if self.use_rag:
+            try:
+                self.rag_service = RAGService(use_openai_embeddings=True)
+                print("✓ Explanation Agent: RAG service initialized")
+            except Exception as e:
+                print(f"Warning: Could not initialize RAG service: {e}")
+                self.use_rag = False
+
     def explain_prediction(self, prediction_result: Dict[str, Any], detail_level: str = "moderate") -> str:
         """
         Generate a natural language explanation of the CVD risk prediction
+        Enhanced with RAG retrieval from clinical guidelines
 
         Args:
             prediction_result: Result dictionary from PredictionAgent.predict()
             detail_level: "brief", "moderate", or "detailed"
 
         Returns:
-            Natural language explanation string
+            Natural language explanation string with references
         """
         # Prepare context for the LLM
         risk_score = prediction_result["risk_score"]
@@ -78,6 +100,27 @@ class ExplanationAgent:
                 "impact": "increases risk" if shap_val > 0 else "decreases risk"
             })
 
+        # Retrieve relevant clinical guideline information
+        guideline_context = ""
+        references = []
+        if self.use_rag and self.rag_service:
+            try:
+                # Search for information about CVD risk factors in CML patients
+                query = f"CML cardiovascular risk factors {risk_level} risk TKI therapy"
+                rag_results = self.rag_service.retrieve(query, n_results=3)
+                if rag_results:
+                    guideline_context = "\n\nRelevant clinical guideline information:\n"
+                    for i, result in enumerate(rag_results, 1):
+                        guideline_context += f"\n[{i}] {result['text'][:400]}...\n"
+                        guideline_context += f"   Source: {result['source']}, Page: {result['page']}\n"
+                        references.append({
+                            'type': 'guideline',
+                            'source': result['source'],
+                            'page': result['page']
+                        })
+            except Exception as e:
+                print(f"Error retrieving from RAG: {e}")
+
         # Create prompt based on detail level
         prompts = {
             "brief": f"""You are a medical AI assistant. Explain this CVD risk prediction in 2-3 sentences.
@@ -95,12 +138,15 @@ Patient CVD Risk: {risk_score:.1%} ({risk_level} risk)
 
 Key Contributing Factors:
 {json.dumps(feature_summary, indent=2)}
+{guideline_context}
 
 Provide:
-1. Overall risk assessment
-2. Top 2-3 factors increasing risk
+1. Overall risk assessment based on clinical guidelines
+2. Top 2-3 factors increasing risk with reference to guidelines
 3. Any protective factors
-4. Keep explanation clear for healthcare providers.""",
+4. Clinical significance for CML patients on TKI therapy
+5. Keep explanation clear for healthcare providers
+6. Cite guideline sources when referencing specific recommendations.""",
 
             "detailed": f"""You are a medical AI assistant specializing in CML and cardiovascular disease.
 
@@ -125,7 +171,7 @@ Use medical terminology but remain clear."""
             response = self.client.chat.completions.create(
                 model=self.model,
                 messages=[
-                    {"role": "system", "content": "You are a medical AI assistant specializing in cardiovascular disease risk for CML patients. Provide clear, evidence-based explanations."},
+                    {"role": "system", "content": "You are a medical AI assistant specializing in cardiovascular disease risk for CML patients. Provide clear, evidence-based explanations using clinical guidelines."},
                     {"role": "user", "content": prompt}
                 ],
                 temperature=0.3,  # Lower temperature for more consistent medical explanations
@@ -133,6 +179,13 @@ Use medical terminology but remain clear."""
             )
 
             explanation = response.choices[0].message.content
+
+            # Add references if available
+            if references:
+                explanation += "\n\n--- References ---\n"
+                for i, ref in enumerate(references, 1):
+                    explanation += f"{i}. Clinical Guideline: {ref['source']}, Page {ref['page']}\n"
+
             return explanation
 
         except Exception as e:

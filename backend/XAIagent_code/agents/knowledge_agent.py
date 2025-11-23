@@ -1,9 +1,10 @@
 """
 Knowledge Agent - Answers questions about features, CML, and CVD
+Enhanced with RAG (Retrieval-Augmented Generation) from clinical guidelines
 """
 import sys
 from pathlib import Path
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 import json
 
 # OpenAI import
@@ -17,6 +18,21 @@ except ImportError:
 sys.path.append(str(Path(__file__).parent.parent))
 from config import OPENAI_API_KEY, OPENAI_MODEL, FEATURE_INFO
 
+# RAG and PubMed imports
+try:
+    from knowledge_base.rag_service import RAGService
+    RAG_AVAILABLE = True
+except ImportError:
+    RAG_AVAILABLE = False
+    print("Warning: RAG service not available")
+
+try:
+    from knowledge_base.pubmed_service import PubMedService
+    PUBMED_AVAILABLE = True
+except ImportError:
+    PUBMED_AVAILABLE = False
+    print("Warning: PubMed service not available")
+
 
 class KnowledgeAgent:
     """
@@ -24,12 +40,14 @@ class KnowledgeAgent:
     and providing educational information about CML and CVD
     """
 
-    def __init__(self, api_key: str = None):
+    def __init__(self, api_key: str = None, use_rag: bool = True, use_pubmed: bool = True):
         """
         Initialize the knowledge agent
 
         Args:
             api_key: OpenAI API key (defaults to config)
+            use_rag: Whether to use RAG system for clinical guidelines
+            use_pubmed: Whether to use PubMed for scientific articles
         """
         if OpenAI is None:
             raise ImportError("OpenAI library not installed")
@@ -40,6 +58,34 @@ class KnowledgeAgent:
 
         self.client = OpenAI(api_key=self.api_key)
         self.model = OPENAI_MODEL
+
+        # Initialize RAG service
+        self.rag_service = None
+        self.use_rag = use_rag and RAG_AVAILABLE
+        if self.use_rag:
+            try:
+                self.rag_service = RAGService(use_openai_embeddings=True)
+                print("✓ Knowledge Agent: RAG service initialized")
+            except Exception as e:
+                print(f"Warning: Could not initialize RAG service: {e}")
+                self.use_rag = False
+
+        # Initialize PubMed service (with MCP support)
+        self.pubmed_service = None
+        self.use_pubmed = use_pubmed and PUBMED_AVAILABLE
+        if self.use_pubmed:
+            try:
+                # Try to use MCP if available, otherwise use direct API
+                self.pubmed_service = PubMedService(use_mcp=True)
+                print("✓ Knowledge Agent: PubMed service initialized (with MCP)")
+            except Exception as e:
+                try:
+                    # Fallback to direct API
+                    self.pubmed_service = PubMedService(use_mcp=False)
+                    print("✓ Knowledge Agent: PubMed service initialized (direct API)")
+                except Exception as e2:
+                    print(f"Warning: Could not initialize PubMed service: {e2}")
+                    self.use_pubmed = False
 
         # Build knowledge base context
         self.knowledge_base = self._build_knowledge_base()
@@ -68,24 +114,79 @@ class KnowledgeAgent:
     def answer_question(self, question: str, context: Dict[str, Any] = None) -> str:
         """
         Answer a general question about features, CML, or CVD
+        Enhanced with RAG retrieval from clinical guidelines and PubMed articles
 
         Args:
             question: User's question
             context: Optional context (e.g., patient data, prediction results)
 
         Returns:
-            Answer string
+            Answer string with references
         """
+        # Retrieve relevant information from clinical guidelines (RAG)
+        guideline_context = ""
+        references = []
+        
+        if self.use_rag and self.rag_service:
+            try:
+                rag_results = self.rag_service.retrieve(question, n_results=3)
+                if rag_results:
+                    guideline_context = "\n\nRelevant information from clinical guidelines:\n"
+                    for i, result in enumerate(rag_results, 1):
+                        guideline_context += f"\n[{i}] {result['text'][:500]}...\n"
+                        guideline_context += f"   Source: {result['source']}, Page: {result['page']}\n"
+                        references.append({
+                            'type': 'guideline',
+                            'source': result['source'],
+                            'page': result['page']
+                        })
+            except Exception as e:
+                print(f"Error retrieving from RAG: {e}")
+
+        # Retrieve relevant PubMed articles
+        pubmed_context = ""
+        if self.use_pubmed and self.pubmed_service:
+            try:
+                # Search PubMed for relevant articles
+                articles = self.pubmed_service.search_articles(
+                    query=f"CML cardiovascular {question}",
+                    max_results=2
+                )
+                if articles:
+                    pubmed_context = "\n\nRelevant scientific articles from PubMed:\n"
+                    for article in articles:
+                        pubmed_context += f"\n- {article['title']}\n"
+                        pubmed_context += f"  {article['journal']} ({article['year']})\n"
+                        pubmed_context += f"  Abstract: {article['abstract'][:300]}...\n"
+                        pubmed_context += f"  PMID: {article['pmid']}\n"
+                        references.append({
+                            'type': 'pubmed',
+                            'pmid': article['pmid'],
+                            'title': article['title'],
+                            'journal': article['journal'],
+                            'year': article['year']
+                        })
+            except Exception as e:
+                print(f"Error searching PubMed: {e}")
+
+        # Build enhanced system prompt
         system_prompt = f"""You are a medical knowledge assistant specializing in:
 - Chronic Myeloid Leukemia (CML)
 - Cardiovascular Disease (CVD)
 - Laboratory values and their clinical significance
 - TKI medications for CML
 
-Use this knowledge base to answer questions:
+Base knowledge:
 {self.knowledge_base}
+{guideline_context}
+{pubmed_context}
 
-Provide accurate, evidence-based answers. If you're not certain, say so."""
+Instructions:
+1. Use the clinical guideline information and PubMed articles to provide evidence-based answers
+2. Always cite your sources when referencing guidelines or articles
+3. If information from guidelines conflicts with general knowledge, prioritize guideline information
+4. Provide accurate, evidence-based answers. If you're not certain, say so.
+5. Format references clearly at the end of your answer."""
 
         # Build user prompt with context if provided
         user_prompt = question
@@ -100,10 +201,21 @@ Provide accurate, evidence-based answers. If you're not certain, say so."""
                     {"role": "user", "content": user_prompt}
                 ],
                 temperature=0.3,
-                max_tokens=500
+                max_tokens=800  # Increased for longer responses with references
             )
 
-            return response.choices[0].message.content
+            answer = response.choices[0].message.content
+
+            # Add formatted references
+            if references:
+                answer += "\n\n--- References ---\n"
+                for i, ref in enumerate(references, 1):
+                    if ref['type'] == 'guideline':
+                        answer += f"{i}. Clinical Guideline: {ref['source']}, Page {ref['page']}\n"
+                    elif ref['type'] == 'pubmed':
+                        answer += f"{i}. {ref['title']}. {ref['journal']} ({ref['year']}). PMID: {ref['pmid']}\n"
+
+            return answer
 
         except Exception as e:
             return f"Error answering question: {e}"

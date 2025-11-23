@@ -16,3 +16,16 @@ python-dotenv==1.0.1  # For managing API keys
 # Streamlit UI
 streamlit>=1.28.0
 plotly>=5.18.0  # For interactive visualizations
+
+# RAG System Dependencies
+chromadb>=0.4.0  # Vector database for embeddings
+PyPDF2>=3.0.0  # PDF processing (primary)
+pdfplumber>=0.10.0  # Alternative PDF processing (better text extraction)
+sentence-transformers>=2.2.0  # Multi-language embeddings (for Dutch support)
+
+# PubMed Integration (optional)
+biopython>=1.81  # For PubMed API access
+requests>=2.31.0  # HTTP requests
+
+# MCP (Model Context Protocol) for PubMed
+mcp>=0.1.0  # Model Context Protocol library (optional, for MCP support)

@@ -1,9 +1,10 @@
 """
 Intervention Agent - Suggests actionable interventions to reduce CVD risk
+Enhanced with RAG (Retrieval-Augmented Generation) from clinical guidelines
 """
 import sys
 from pathlib import Path
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 import json
 
 # OpenAI import
@@ -17,6 +18,14 @@ except ImportError:
 sys.path.append(str(Path(__file__).parent.parent))
 from config import OPENAI_API_KEY, OPENAI_MODEL, FEATURE_INFO
 
+# RAG imports
+try:
+    from knowledge_base.rag_service import RAGService
+    RAG_AVAILABLE = True
+except ImportError:
+    RAG_AVAILABLE = False
+    print("Warning: RAG service not available")
+
 
 class InterventionAgent:
     """
@@ -24,12 +33,13 @@ class InterventionAgent:
     based on prediction results and SHAP values
     """
 
-    def __init__(self, api_key: str = None):
+    def __init__(self, api_key: str = None, use_rag: bool = True):
         """
         Initialize the intervention agent
 
         Args:
             api_key: OpenAI API key (defaults to config)
+            use_rag: Whether to use RAG system for clinical guidelines
         """
         if OpenAI is None:
             raise ImportError("OpenAI library not installed")
@@ -40,6 +50,17 @@ class InterventionAgent:
 
         self.client = OpenAI(api_key=self.api_key)
         self.model = OPENAI_MODEL
+
+        # Initialize RAG service
+        self.rag_service = None
+        self.use_rag = use_rag and RAG_AVAILABLE
+        if self.use_rag:
+            try:
+                self.rag_service = RAGService(use_openai_embeddings=True)
+                print("✓ Intervention Agent: RAG service initialized")
+            except Exception as e:
+                print(f"Warning: Could not initialize RAG service: {e}")
+                self.use_rag = False
 
     def suggest_interventions(self, prediction_result: Dict[str, Any],
                             top_n: int = 5,
@@ -76,6 +97,27 @@ class InterventionAgent:
                 "description": feature_info.get("description", "")
             })
 
+        # Retrieve relevant intervention guidelines
+        guideline_context = ""
+        references = []
+        if self.use_rag and self.rag_service:
+            try:
+                # Search for intervention recommendations
+                query = f"CML cardiovascular risk reduction interventions {risk_level} risk TKI therapy recommendations"
+                rag_results = self.rag_service.retrieve(query, n_results=3)
+                if rag_results:
+                    guideline_context = "\n\nRelevant clinical guideline recommendations:\n"
+                    for i, result in enumerate(rag_results, 1):
+                        guideline_context += f"\n[{i}] {result['text'][:400]}...\n"
+                        guideline_context += f"   Source: {result['source']}, Page: {result['page']}\n"
+                        references.append({
+                            'type': 'guideline',
+                            'source': result['source'],
+                            'page': result['page']
+                        })
+            except Exception as e:
+                print(f"Error retrieving from RAG: {e}")
+
         intervention_focus = {
             "lifestyle": "Focus on lifestyle modifications (diet, exercise, stress management)",
             "medical": "Focus on medical interventions (medications, clinical monitoring)",
@@ -83,6 +125,7 @@ class InterventionAgent:
         }
 
         prompt = f"""You are a clinical decision support AI for CML patients at risk for CVD.
+{guideline_context}
 
 Patient Risk Profile:
 - CVD Risk Score: {risk_score:.1%} ({risk_level} risk)
@@ -113,25 +156,35 @@ Provide a comprehensive intervention plan:
    - Special precautions for CML patients
 
 Make recommendations:
-- Evidence-based
+- Evidence-based and aligned with clinical guidelines
 - Specific and actionable
 - Prioritized by impact
 - Realistic for patient adherence
+- Reference guideline sources when applicable
 
-Note: This is clinical decision support. All recommendations should be reviewed by the patient's healthcare team."""
+Note: This is clinical decision support. All recommendations should be reviewed by the patient's healthcare team.
+{guideline_context}"""
 
         try:
             response = self.client.chat.completions.create(
                 model=self.model,
                 messages=[
-                    {"role": "system", "content": "You are a clinical decision support AI providing evidence-based CVD risk reduction strategies for CML patients."},
+                    {"role": "system", "content": "You are a clinical decision support AI providing evidence-based CVD risk reduction strategies for CML patients based on clinical guidelines."},
                     {"role": "user", "content": prompt}
                 ],
                 temperature=0.3,
                 max_tokens=1200
             )
 
-            return response.choices[0].message.content
+            interventions = response.choices[0].message.content
+
+            # Add references if available
+            if references:
+                interventions += "\n\n--- References ---\n"
+                for i, ref in enumerate(references, 1):
+                    interventions += f"{i}. Clinical Guideline: {ref['source']}, Page {ref['page']}\n"
+
+            return interventions
 
         except Exception as e:
             return f"Error generating interventions: {e}"
