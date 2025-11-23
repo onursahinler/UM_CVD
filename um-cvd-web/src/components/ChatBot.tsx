@@ -138,8 +138,8 @@ export function ChatBot({ isOpen, onClose, patientData, riskScore, shapValues, u
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
                 
-                {/* Tooltip */}
-                <div className="absolute right-0 bottom-full mb-2 w-72 p-3 bg-gray-900 text-white text-xs rounded-lg shadow-2xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 pointer-events-none">
+                {/* Tooltip - Below the icon */}
+                <div className="absolute left-1/2 transform -translate-x-1/2 top-full mt-2 w-72 p-3 bg-gray-900 text-white text-xs rounded-lg shadow-2xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 pointer-events-none">
                   <div className="font-semibold mb-2 text-sm flex items-center gap-2">
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -156,9 +156,9 @@ export function ChatBot({ isOpen, onClose, patientData, riskScore, shapValues, u
                       <span className="ml-1">AI uses only internal information: patient input values, risk scores, SHAP values, and scenario comparisons. No external searches are performed, providing faster responses based solely on the current patient data.</span>
                     </div>
                   </div>
-                  {/* Tooltip Arrow */}
-                  <div className="absolute top-full right-6 -mt-1">
-                    <div className="border-4 border-transparent border-t-gray-900"></div>
+                  {/* Tooltip Arrow - Pointing up */}
+                  <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-0">
+                    <div className="border-4 border-transparent border-b-gray-900"></div>
                   </div>
                 </div>
               </div>
