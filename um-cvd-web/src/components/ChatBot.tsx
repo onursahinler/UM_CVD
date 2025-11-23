@@ -106,7 +106,7 @@ export function ChatBot({ isOpen, onClose, patientData, riskScore, shapValues, u
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
       <div className="bg-white/95 backdrop-blur-xl rounded-3xl shadow-2xl w-full max-w-2xl h-[600px] flex flex-col border border-white/20 animate-scale-in overflow-visible">
         {/* Header */}
-        <div className="flex items-center justify-between p-5 border-b border-gray-200/50 bg-gradient-to-r from-blue-50/50 to-purple-50/50">
+        <div className="relative z-50 flex items-center justify-between p-5 border-b border-gray-200/50 bg-gradient-to-r from-blue-50/50 to-purple-50/50">
           <div className="flex items-center gap-3">
             <div className="relative">
               <div className="absolute inset-0 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full blur-md opacity-50"></div>
@@ -127,7 +127,7 @@ export function ChatBot({ isOpen, onClose, patientData, riskScore, shapValues, u
               <span className="text-xs font-medium text-gray-600">External Sources</span>
               
               {/* Information Icon with Tooltip */}
-              <div className="relative group">
+              <div className="relative z-[100] group">
                 <svg 
                   className="w-4 h-4 text-gray-400 hover:text-blue-500 cursor-help transition-colors" 
                   fill="none" 
@@ -194,7 +194,7 @@ export function ChatBot({ isOpen, onClose, patientData, riskScore, shapValues, u
         </div>
 
         {/* Messages */}
-        <div className="flex-1 overflow-y-auto p-5 space-y-4 bg-gradient-to-b from-white/50 to-gray-50/30">
+        <div className="relative z-10 flex-1 overflow-y-auto p-5 space-y-4 bg-gradient-to-b from-white/50 to-gray-50/30">
           {messages.map((msg, index) => (
             <div
               key={index}
