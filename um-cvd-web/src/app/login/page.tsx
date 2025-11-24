@@ -14,10 +14,6 @@ export default function LoginPage() {
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(false);
-  const [showForgotPassword, setShowForgotPassword] = useState(false);
-  const [forgotEmail, setForgotEmail] = useState("");
-  const [isForgotLoading, setIsForgotLoading] = useState(false);
-  const [forgotMessage, setForgotMessage] = useState("");
 
   const handleInput = (key: keyof typeof formData) => 
     (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -62,29 +58,6 @@ export default function LoginPage() {
     } finally {
       setIsLoading(false);
     }
-  };
-
-  const handleForgotPassword = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!forgotEmail) return;
-    
-    setIsForgotLoading(true);
-    setForgotMessage("");
-    
-    // Simulate checking if email exists in database
-    setTimeout(() => {
-      setIsForgotLoading(false);
-      if (forgotEmail === "admin@admin.com") {
-        setForgotMessage("Password reset email sent! Please check your inbox.");
-        setTimeout(() => {
-          setShowForgotPassword(false);
-          setForgotEmail("");
-          setForgotMessage("");
-        }, 2000);
-      } else {
-        setForgotMessage("Email not found in our database. Please contact administrator.");
-      }
-    }, 1500);
   };
 
   return (
@@ -178,7 +151,7 @@ export default function LoginPage() {
                 )}
               </div>
 
-              <div className="flex items-center justify-between">
+              <div className="flex items-center">
                 <label className="flex items-center">
                   <input
                     type="checkbox"
@@ -186,13 +159,6 @@ export default function LoginPage() {
                   />
                   <span className="ml-2 text-sm text-white">Remember me</span>
                 </label>
-                <button 
-                  type="button"
-                  onClick={() => setShowForgotPassword(true)}
-                  className="text-sm text-brand-600 hover:text-brand-700"
-                >
-                  Forgot password?
-                </button>
               </div>
 
               <button
@@ -237,90 +203,6 @@ export default function LoginPage() {
         © UM Institute of Data Science
       </footer>
 
-      {/* Forgot Password Modal */}
-      {showForgotPassword && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-xl">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-black">Reset Password</h3>
-              <button
-                onClick={() => {
-                  setShowForgotPassword(false);
-                  setForgotEmail("");
-                  setForgotMessage("");
-                }}
-                className="text-gray-400 hover:text-gray-600"
-              >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-            
-            <p className="text-gray-600 text-sm mb-4">
-              Enter your email address and we'll send you a password reset link.
-            </p>
-
-            <form onSubmit={handleForgotPassword} className="space-y-4">
-              <div>
-                <label className="block text-sm font-semibold text-black mb-2">
-                  Email Address
-                </label>
-                <input
-                  type="email"
-                  value={forgotEmail}
-                  onChange={(e) => setForgotEmail(e.target.value)}
-                  className="w-full rounded-pill border border-black/10 px-4 py-3 outline-none focus:ring-2 focus:ring-brand-400 bg-white text-black placeholder-gray-500"
-                  placeholder="Enter your email"
-                  required
-                />
-              </div>
-
-              {forgotMessage && (
-                <div className={`p-3 rounded-lg text-sm ${
-                  forgotMessage.includes("sent") 
-                    ? "bg-green-50 text-green-700 border border-green-200" 
-                    : "bg-red-50 text-red-700 border border-red-200"
-                }`}>
-                  {forgotMessage}
-                </div>
-              )}
-
-              <div className="flex gap-3 pt-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowForgotPassword(false);
-                    setForgotEmail("");
-                    setForgotMessage("");
-                  }}
-                  className="flex-1 rounded-pill py-3 px-6 font-semibold text-gray-600 border border-gray-300 hover:bg-gray-50"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={isForgotLoading || !forgotEmail}
-                  className={`flex-1 rounded-pill py-3 px-6 font-semibold text-white transition ${
-                    isForgotLoading || !forgotEmail
-                      ? "bg-gray-400 cursor-not-allowed"
-                      : "bg-brand-600 hover:bg-brand-700"
-                  }`}
-                >
-                  {isForgotLoading ? (
-                    <div className="flex items-center justify-center">
-                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
-                      Sending...
-                    </div>
-                  ) : (
-                    "Send Reset Link"
-                  )}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
