@@ -309,8 +309,9 @@ def chat():
         user_message = data.get('message', '')
         context = data.get('context', {})
         
-        # Get external sources toggle (default: True if not specified)
-        use_external_sources = context.get('useExternalSources', True)
+        # Get external sources toggles (defaults: True)
+        use_guideline_sources = context.get('useGuidelineSources', True)
+        use_pubmed_sources = context.get('usePubmedSources', True)
         
         # Try to use XAI Agent System if available
         orchestrator = get_orchestrator()
@@ -373,7 +374,7 @@ def chat():
                     if orchestrator.explanation_agent:
                         # Temporarily disable RAG if toggle is OFF
                         original_use_rag = orchestrator.explanation_agent.use_rag
-                        if not use_external_sources:
+                        if not use_guideline_sources:
                             orchestrator.explanation_agent.use_rag = False
                         
                         # Compare original with most recent updated result
@@ -395,7 +396,7 @@ def chat():
                     if orchestrator.explanation_agent:
                         # Temporarily disable RAG if toggle is OFF
                         original_use_rag = orchestrator.explanation_agent.use_rag
-                        if not use_external_sources:
+                        if not use_guideline_sources:
                             orchestrator.explanation_agent.use_rag = False
                         
                         # Include updated scenarios context if available
@@ -422,7 +423,7 @@ def chat():
                     if orchestrator.intervention_agent:
                         # Temporarily disable RAG if toggle is OFF
                         original_use_rag = orchestrator.intervention_agent.use_rag
-                        if not use_external_sources:
+                        if not use_guideline_sources:
                             orchestrator.intervention_agent.use_rag = False
                         
                         # If we have updated results, use the most recent for better recommendations
@@ -444,14 +445,16 @@ def chat():
                         "prediction": orchestrator.current_prediction,
                         "patient_data": orchestrator.current_patient_data,
                         "updated_scenarios_count": len(updated_results) if updated_results else 0,
-                        "use_external_sources": use_external_sources  # Pass toggle state
+                        "use_guideline_sources": use_guideline_sources,
+                        "use_pubmed_sources": use_pubmed_sources
                     }
                     # Temporarily disable RAG/PubMed if toggle is OFF
                     if orchestrator.knowledge_agent:
                         original_use_rag = orchestrator.knowledge_agent.use_rag
                         original_use_pubmed = orchestrator.knowledge_agent.use_pubmed
-                        if not use_external_sources:
+                        if not use_guideline_sources:
                             orchestrator.knowledge_agent.use_rag = False
+                        if not use_pubmed_sources:
                             orchestrator.knowledge_agent.use_pubmed = False
                         response_text = orchestrator.knowledge_agent.answer_question(user_message, context_for_question)
                         # Restore original settings

@@ -123,11 +123,48 @@ class KnowledgeAgent:
         Returns:
             Answer string with references
         """
+        # Check context for override flags (from frontend toggles)
+        use_rag_for_this_query = self.use_rag
+        use_pubmed_for_this_query = self.use_pubmed
+        
+        # Check if this is a patient-specific question (about the current patient's values/data)
+        # Note: The chatbot is used by doctors, not patients, so questions are about "the patient" not "my"
+        is_patient_specific = False
+        if context:
+            # Check if we have patient data or prediction in context
+            has_patient_data = bool(context.get('patient_data')) or bool(context.get('prediction'))
+            
+            if has_patient_data:
+                # Check if question is about the current patient's specific values/data
+                question_lower = question.lower()
+                patient_keywords = [
+                    'this patient', 'the patient', 'patient\'s', 'patients\'',
+                    'patient risk', 'patient score', 'patient\'s risk', 'patient\'s score',
+                    'risk score', 'this risk', 'the risk', 'this score', 'the score',
+                    'shap', 'contribution', 'feature importance', 'factor contribution',
+                    'this value', 'these values', 'patient value', 'patient values',
+                    'explain the risk', 'why is the risk', 'what does the risk',
+                    'explain this', 'explain these', 'what does this mean',
+                    'compare', 'difference', 'better', 'worse', 'change'
+                ]
+                is_patient_specific = any(kw in question_lower for kw in patient_keywords)
+            
+            # Override with context values if provided
+            if 'use_guideline_sources' in context:
+                use_rag_for_this_query = context.get('use_guideline_sources', True) and self.use_rag
+            if 'use_pubmed_sources' in context:
+                use_pubmed_for_this_query = context.get('use_pubmed_sources', True) and self.use_pubmed
+        
+        # If this is a patient-specific question, don't use external sources
+        if is_patient_specific:
+            use_rag_for_this_query = False
+            use_pubmed_for_this_query = False
+        
         # Retrieve relevant information from clinical guidelines (RAG)
         guideline_context = ""
         references = []
         
-        if self.use_rag and self.rag_service:
+        if use_rag_for_this_query and self.rag_service:
             try:
                 rag_results = self.rag_service.retrieve(question, n_results=3)
                 if rag_results:
@@ -145,7 +182,7 @@ class KnowledgeAgent:
 
         # Retrieve relevant PubMed articles
         pubmed_context = ""
-        if self.use_pubmed and self.pubmed_service:
+        if use_pubmed_for_this_query and self.pubmed_service:
             try:
                 # Search PubMed for relevant articles
                 articles = self.pubmed_service.search_articles(

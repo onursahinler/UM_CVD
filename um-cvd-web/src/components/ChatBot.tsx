@@ -31,7 +31,8 @@ export function ChatBot({ isOpen, onClose, patientData, riskScore, shapValues, u
   ]);
   const [inputValue, setInputValue] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [useExternalSources, setUseExternalSources] = useState(true); // ON by default
+  const [useGuidelineSources, setUseGuidelineSources] = useState(true); // Clinical guidelines (PDF)
+  const [usePubmedSources, setUsePubmedSources] = useState(true);       // PubMed articles
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -62,7 +63,8 @@ export function ChatBot({ isOpen, onClose, patientData, riskScore, shapValues, u
         shapValues,
         updatedResults: updatedResults || [],
         conversation: messages,
-        useExternalSources: useExternalSources // Add toggle state
+        useGuidelineSources,
+        usePubmedSources
       };
 
       const response = await fetch('http://localhost:5000/api/chat', {
@@ -122,65 +124,53 @@ export function ChatBot({ isOpen, onClose, patientData, riskScore, shapValues, u
             </div>
           </div>
           <div className="flex items-center gap-3">
-            {/* External Sources Toggle */}
-            <div className="flex items-center gap-2 bg-white/80 backdrop-blur-sm rounded-lg px-3 py-1.5 border border-gray-200/50">
-              <span className="text-xs font-medium text-gray-600">External Sources</span>
-              
-              {/* Information Icon with Tooltip */}
-              <div className="relative z-[100] group">
-                <svg 
-                  className="w-4 h-4 text-gray-400 hover:text-blue-500 cursor-help transition-colors" 
-                  fill="none" 
-                  stroke="currentColor" 
-                  viewBox="0 0 24 24"
-                  aria-label="Information about External Sources"
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                
-                {/* Tooltip - Below the icon */}
-                <div className="absolute left-1/2 transform -translate-x-1/2 top-full mt-2 w-72 p-3 bg-gray-900 text-white text-xs rounded-lg shadow-2xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-[9999] pointer-events-none">
-                  <div className="font-semibold mb-2 text-sm flex items-center gap-2">
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    External Sources
-                  </div>
-                  <div className="space-y-2 text-xs leading-relaxed">
-                    <div>
-                      <span className="font-semibold text-green-300">ON:</span>
-                      <span className="ml-1">AI searches clinical guidelines (PDF documents) and PubMed scientific articles. Answers include references with source names and page numbers for verification.</span>
-                    </div>
-                    <div>
-                      <span className="font-semibold text-gray-300">OFF:</span>
-                      <span className="ml-1">AI uses only internal information: patient input values, risk scores, SHAP values, and scenario comparisons. No external searches are performed, providing faster responses based solely on the current patient data.</span>
-                    </div>
-                  </div>
-                  {/* Tooltip Arrow - Pointing up */}
-                  <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-0">
-                    <div className="border-4 border-transparent border-b-gray-900"></div>
-                  </div>
+            {/* External Source Toggles */}
+            <div className="flex flex-col gap-2 bg-white/80 backdrop-blur-sm rounded-lg px-3 py-2 border border-gray-200/50 min-w-[220px]">
+              <div className="flex items-center justify-between">
+                <div className="flex flex-col">
+                  <span className="text-xs font-semibold text-gray-700">Guidelines</span>
+                  <span className="text-[10px] text-gray-500">Use uploaded PDF clinical guidelines</span>
                 </div>
-              </div>
-              
-              <button
-                onClick={() => setUseExternalSources(!useExternalSources)}
-                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
-                  useExternalSources ? 'bg-blue-600' : 'bg-gray-300'
-                }`}
-                role="switch"
-                aria-checked={useExternalSources}
-                aria-label={useExternalSources ? 'External sources enabled' : 'External sources disabled'}
-              >
-                <span
-                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                    useExternalSources ? 'translate-x-6' : 'translate-x-1'
+                <button
+                  onClick={() => setUseGuidelineSources(!useGuidelineSources)}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
+                    useGuidelineSources ? 'bg-blue-600' : 'bg-gray-300'
                   }`}
-                />
-              </button>
-              <span className={`text-xs font-semibold ${useExternalSources ? 'text-green-600' : 'text-gray-400'}`}>
-                {useExternalSources ? 'ON' : 'OFF'}
-              </span>
+                  role="switch"
+                  aria-checked={useGuidelineSources}
+                  aria-label={useGuidelineSources ? 'Guideline sources enabled' : 'Guideline sources disabled'}
+                >
+                  <span
+                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                      useGuidelineSources ? 'translate-x-6' : 'translate-x-1'
+                    }`}
+                  />
+                </button>
+              </div>
+              <div className="flex items-center justify-between border-t border-gray-200 pt-2">
+                <div className="flex flex-col">
+                  <span className="text-xs font-semibold text-gray-700">PubMed</span>
+                  <span className="text-[10px] text-gray-500">Use PubMed scientific articles</span>
+                </div>
+                <button
+                  onClick={() => setUsePubmedSources(!usePubmedSources)}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
+                    usePubmedSources ? 'bg-blue-600' : 'bg-gray-300'
+                  }`}
+                  role="switch"
+                  aria-checked={usePubmedSources}
+                  aria-label={usePubmedSources ? 'PubMed sources enabled' : 'PubMed sources disabled'}
+                >
+                  <span
+                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                      usePubmedSources ? 'translate-x-6' : 'translate-x-1'
+                    }`}
+                  />
+                </button>
+              </div>
+              <p className="text-[10px] text-gray-500 mt-1">
+                Turn both OFF to answer using only patient data (no external references).
+              </p>
             </div>
             <button
               onClick={onClose}
