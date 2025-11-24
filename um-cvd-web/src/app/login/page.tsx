@@ -151,15 +151,6 @@ export default function LoginPage() {
                 )}
               </div>
 
-              <div className="flex items-center">
-                <label className="flex items-center">
-                  <input
-                    type="checkbox"
-                    className="rounded border-gray-300 text-brand-600 focus:ring-brand-500"
-                  />
-                  <span className="ml-2 text-sm text-white">Remember me</span>
-                </label>
-              </div>
 
               <button
                 type="submit"
