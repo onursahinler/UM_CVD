@@ -34,6 +34,7 @@ export function ChatBot({ isOpen, onClose, patientData, riskScore, shapValues, u
   const [useGuidelineSources, setUseGuidelineSources] = useState(true); // Clinical guidelines (PDF)
   const [usePubmedSources, setUsePubmedSources] = useState(true);       // PubMed articles
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const previousRiskScoreRef = useRef<string>(riskScore);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -42,6 +43,22 @@ export function ChatBot({ isOpen, onClose, patientData, riskScore, shapValues, u
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  // Reset chat history when patient data changes (new patient analysis)
+  useEffect(() => {
+    // Check if risk score changed (indicating a new patient analysis)
+    if (previousRiskScoreRef.current !== riskScore && previousRiskScoreRef.current !== '') {
+      // Reset messages to initial state
+      setMessages([
+        {
+          role: "assistant",
+          content: "Hello! I'm your AI assistant for CVD risk analysis. Ask me about risk scores, laboratory values, SHAP analysis, or treatment recommendations."
+        }
+      ]);
+    }
+    // Update the ref to track current risk score
+    previousRiskScoreRef.current = riskScore;
+  }, [riskScore]);
 
   const handleSend = async () => {
     if (!inputValue.trim() || isLoading) return;

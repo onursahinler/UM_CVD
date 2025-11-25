@@ -323,13 +323,14 @@ def chat():
             # Prepare updated results (what-if scenarios)
             updated_results = prepare_updated_results_from_context(context)
             
-            # If we have patient data, analyze it first (or use cached prediction)
+            # If we have patient data, update orchestrator state (always update, not just if missing)
+            # This ensures that when a new patient's data is submitted, the orchestrator uses the new data
             if patient_data:
                 # Check if we need to run a new prediction
                 risk_score_str = context.get('riskScore', '')
                 shap_values = prepare_shap_values_from_context(context)
                 
-                # If we have prediction results, create a prediction result dict
+                # If we have prediction results, create/update prediction result dict
                 if risk_score_str and risk_score_str != 'N/A':
                     try:
                         # Convert risk score from percentage to probability if needed
@@ -338,15 +339,15 @@ def chat():
                         if risk_score > 1:
                             risk_score = risk_score / 100.0
                         
-                        if not orchestrator.current_prediction:
-                            # Create prediction result from context
-                            orchestrator.current_prediction = {
-                                "risk_score": risk_score,
-                                "risk_level": "High" if risk_score > 0.7 else ("Moderate" if risk_score > 0.3 else "Low"),
-                                "shap_values": shap_values if shap_values else {},
-                                "feature_values": patient_data
-                            }
-                            orchestrator.current_patient_data = patient_data
+                        # Always update orchestrator state with current patient data
+                        # This ensures new patient data replaces old patient data
+                        orchestrator.current_prediction = {
+                            "risk_score": risk_score,
+                            "risk_level": "High" if risk_score > 0.7 else ("Moderate" if risk_score > 0.3 else "Low"),
+                            "shap_values": shap_values if shap_values else {},
+                            "feature_values": patient_data
+                        }
+                        orchestrator.current_patient_data = patient_data
                     except (ValueError, TypeError) as e:
                         print(f"Error processing risk score: {e}")
                         pass
