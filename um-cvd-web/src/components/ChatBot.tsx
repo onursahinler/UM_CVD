@@ -31,24 +31,38 @@ export function ChatBot({ isOpen, onClose, patientData, riskScore, shapValues, u
   ]);
   const [inputValue, setInputValue] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [useGuidelineSources, setUseGuidelineSources] = useState(true); // Clinical guidelines (PDF)
-  const [usePubmedSources, setUsePubmedSources] = useState(true);       // PubMed articles
+  const [useGuidelineSources, setUseGuidelineSources] = useState(true);
+  const [usePubmedSources, setUsePubmedSources] = useState(true);
+  
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const previousRiskScoreRef = useRef<string>(riskScore);
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  // --- SCROLL LOGIC (DÜZELTİLDİ) ---
+  const scrollToBottom = (behavior: ScrollBehavior = "smooth") => {
+    // setTimeout, modal açılırken DOM'un hazır olmasını bekler
+    setTimeout(() => {
+      messagesEndRef.current?.scrollIntoView({ behavior });
+    }, 100);
   };
 
+  // 1. Mesajlar değiştiğinde aşağı kaydır
   useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
+    if (isOpen) {
+      scrollToBottom("smooth");
+    }
+  }, [messages, isOpen]);
 
-  // Reset chat history when patient data changes (new patient analysis)
+  // 2. Pencere ilk açıldığında en aşağıya kaydır (Pozisyonu hatırla)
   useEffect(() => {
-    // Check if risk score changed (indicating a new patient analysis)
+    if (isOpen) {
+      scrollToBottom("auto"); // Açılışta "tak" diye gitsin, animasyonsuz
+    }
+  }, [isOpen]);
+
+  // --- PATIENT CHANGE LOGIC ---
+  useEffect(() => {
+    // Eğer hasta (risk skoru) değişirse sohbeti sıfırla
     if (previousRiskScoreRef.current !== riskScore && previousRiskScoreRef.current !== '') {
-      // Reset messages to initial state
       setMessages([
         {
           role: "assistant",
@@ -56,7 +70,6 @@ export function ChatBot({ isOpen, onClose, patientData, riskScore, shapValues, u
         }
       ]);
     }
-    // Update the ref to track current risk score
     previousRiskScoreRef.current = riskScore;
   }, [riskScore]);
 
@@ -73,7 +86,6 @@ export function ChatBot({ isOpen, onClose, patientData, riskScore, shapValues, u
     setIsLoading(true);
 
     try {
-      // Construct context from patient data and results
       const context = {
         riskScore,
         patientData,
@@ -119,11 +131,18 @@ export function ChatBot({ isOpen, onClose, patientData, riskScore, shapValues, u
     }
   };
 
-  if (!isOpen) return null;
+  // --- DÜZELTME: Unmount yerine CSS ile gizleme ---
+  // if (!isOpen) return null;  <-- BU SATIRI KALDIRDIK.
+  // Yerine aşağıdaki className içinde 'hidden' kontrolü ekledik.
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
-      <div className="bg-white/95 backdrop-blur-xl rounded-3xl shadow-2xl w-full max-w-2xl h-[600px] flex flex-col border border-white/20 animate-scale-in overflow-hidden">
+    <div className={`fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 transition-opacity duration-300 ${
+      isOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none hidden'
+    }`}>
+      <div className={`bg-white/95 backdrop-blur-xl rounded-3xl shadow-2xl w-full max-w-2xl h-[600px] flex flex-col border border-white/20 overflow-hidden transform transition-all duration-300 ${
+        isOpen ? 'scale-100 translate-y-0' : 'scale-95 translate-y-4'
+      }`}>
+        
         {/* Header */}
         <div className="relative z-50 flex items-center justify-between p-5 border-b border-gray-200/50 bg-gradient-to-r from-blue-50/50 to-purple-50/50 rounded-t-3xl overflow-visible">
           <div className="flex items-center gap-3">
@@ -141,7 +160,7 @@ export function ChatBot({ isOpen, onClose, patientData, riskScore, shapValues, u
             </div>
           </div>
           <div className="flex items-center gap-3">
-            {/* External Source Toggles */}
+            {/* Toggles */}
             <div className="flex flex-col gap-2 bg-white/80 backdrop-blur-sm rounded-lg px-3 py-2 border border-gray-200/50 min-w-[220px]">
               <div className="flex items-center justify-between">
                 <div className="flex flex-col">
@@ -153,15 +172,8 @@ export function ChatBot({ isOpen, onClose, patientData, riskScore, shapValues, u
                   className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
                     useGuidelineSources ? 'bg-blue-600' : 'bg-gray-300'
                   }`}
-                  role="switch"
-                  aria-checked={useGuidelineSources}
-                  aria-label={useGuidelineSources ? 'Guideline sources enabled' : 'Guideline sources disabled'}
                 >
-                  <span
-                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                      useGuidelineSources ? 'translate-x-6' : 'translate-x-1'
-                    }`}
-                  />
+                  <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${useGuidelineSources ? 'translate-x-6' : 'translate-x-1'}`} />
                 </button>
               </div>
               <div className="flex items-center justify-between border-t border-gray-200 pt-2">
@@ -174,20 +186,10 @@ export function ChatBot({ isOpen, onClose, patientData, riskScore, shapValues, u
                   className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
                     usePubmedSources ? 'bg-blue-600' : 'bg-gray-300'
                   }`}
-                  role="switch"
-                  aria-checked={usePubmedSources}
-                  aria-label={usePubmedSources ? 'PubMed sources enabled' : 'PubMed sources disabled'}
                 >
-                  <span
-                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                      usePubmedSources ? 'translate-x-6' : 'translate-x-1'
-                    }`}
-                  />
+                  <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${usePubmedSources ? 'translate-x-6' : 'translate-x-1'}`} />
                 </button>
               </div>
-              <p className="text-[10px] text-gray-500 mt-1">
-                Turn both OFF to answer using only patient data (no external references).
-              </p>
             </div>
             <button
               onClick={onClose}
@@ -200,13 +202,12 @@ export function ChatBot({ isOpen, onClose, patientData, riskScore, shapValues, u
           </div>
         </div>
 
-        {/* Messages */}
-        <div className="relative z-10 flex-1 overflow-y-auto p-5 space-y-4 bg-gradient-to-b from-white/50 to-gray-50/30">
+        {/* Messages Area */}
+        <div className="relative z-10 flex-1 overflow-y-auto p-5 space-y-4 bg-gradient-to-b from-white/50 to-gray-50/30 scroll-smooth">
           {messages.map((msg, index) => (
             <div
               key={index}
               className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'} animate-fade-in`}
-              style={{ animationDelay: `${index * 0.1}s` }}
             >
               <div className={`max-w-[80%] rounded-2xl px-4 py-3 shadow-md ${
                 msg.role === 'user'
@@ -230,10 +231,11 @@ export function ChatBot({ isOpen, onClose, patientData, riskScore, shapValues, u
             </div>
           )}
           
+          {/* Scroll Anchor */}
           <div ref={messagesEndRef} />
         </div>
 
-        {/* Input */}
+        {/* Input Area */}
         <div className="p-4 border-t border-gray-200/50 bg-gradient-to-r from-blue-50/30 to-purple-50/30 rounded-b-3xl">
           <div className="flex gap-3">
             <input

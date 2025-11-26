@@ -67,3 +67,10 @@ def test_rag_service():
 if __name__ == "__main__":
     test_rag_service()
 
+
+
+
+
+
+
+

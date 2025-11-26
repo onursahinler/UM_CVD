@@ -1,11 +1,11 @@
 """
-Knowledge Agent - Answers questions about features, CML, and CVD
-Enhanced with RAG (Retrieval-Augmented Generation) from clinical guidelines
+Knowledge Agent - Enhanced with Intelligent Query Generation and RAG
 """
 import sys
 from pathlib import Path
 from typing import Dict, Any, List, Optional
 import json
+import os
 
 # OpenAI import
 try:
@@ -37,17 +37,12 @@ except ImportError:
 class KnowledgeAgent:
     """
     Agent responsible for answering questions about features, medical concepts,
-    and providing educational information about CML and CVD
+    and providing educational information about CML and CVD using RAG and PubMed.
     """
 
     def __init__(self, api_key: str = None, use_rag: bool = True, use_pubmed: bool = True):
         """
         Initialize the knowledge agent
-
-        Args:
-            api_key: OpenAI API key (defaults to config)
-            use_rag: Whether to use RAG system for clinical guidelines
-            use_pubmed: Whether to use PubMed for scientific articles
         """
         if OpenAI is None:
             raise ImportError("OpenAI library not installed")
@@ -92,10 +87,7 @@ class KnowledgeAgent:
 
     def _build_knowledge_base(self) -> str:
         """
-        Build a knowledge base context from feature information
-
-        Returns:
-            Formatted knowledge base string
+        Build a basic knowledge base context from feature information
         """
         kb = "Medical Feature Knowledge Base:\n\n"
         for feature, info in FEATURE_INFO.items():
@@ -111,67 +103,140 @@ class KnowledgeAgent:
 
         return kb
 
+    def _generate_search_queries(self, user_question: str) -> dict:
+        """
+        Generates optimized search queries for RAG and PubMed.
+        Uses simple text parsing to be robust against library versions.
+        """
+        # --- BASİTLEŞTİRİLMİŞ VE SAĞLAM PROMPT ---
+        system_prompt = """
+        You are a medical search assistant.
+        Convert the user's question into TWO simple search queries.
+        
+        OUTPUT FORMAT (Exactly like this):
+        RAG: <keywords for guidelines>
+        PUBMED: <keywords for scientific articles>
+        
+        RULES:
+        1. PUBMED query must be VERY SHORT (max 3-4 keywords).
+        2. REMOVE stop words (is, the, a, for, patient).
+        3. REMOVE years (2020-2024).
+        4. FOCUS on the drug names and the side effect.
+        
+        Example 1:
+        User: "Search for recent studies about obesity impact on Imatinib efficacy"
+        Output:
+        RAG: Imatinib obesity efficacy guidelines
+        PUBMED: Imatinib obesity BMI pharmacokinetics
+        
+        Example 2:
+        User: "Is Imatinib metabolically safer than Nilotinib regarding glucose?"
+        Output:
+        RAG: Imatinib Nilotinib metabolic glucose lipid
+        PUBMED: Imatinib Nilotinib hyperglycemia hyperlipidemia
+        """
+        
+        try:
+            # JSON mode yerine standart text kullanıyoruz (Hata riskini sıfırlar)
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_question}
+                ],
+                temperature=0
+            )
+            content = response.choices[0].message.content
+            
+            # Varsayılan değerler
+            rag_query = user_question
+            pubmed_query = f"CML {user_question}"
+            
+            # Basit Metin Ayrıştırma (Parsing)
+            for line in content.split('\n'):
+                clean_line = line.strip()
+                if clean_line.startswith("RAG:"):
+                    rag_query = clean_line.replace("RAG:", "").strip()
+                elif clean_line.startswith("PUBMED:"):
+                    pubmed_query = clean_line.replace("PUBMED:", "").strip()
+            
+            # Güvenlik: Eğer PubMed sorgusu hala çok uzunsa (5 kelimeden fazla), zorla kısalt
+            if len(pubmed_query.split()) > 5:
+                # Sadece ilk 4 kelimeyi al
+                pubmed_query = " ".join(pubmed_query.split()[:4])
+
+            return {
+                "rag_query": rag_query,
+                "pubmed_query": pubmed_query,
+                "needs_external_info": True
+            }
+            
+        except Exception as e:
+            print(f"Query generation error: {e}")
+            # Hata durumunda en basit anahtar kelimeleri kullan
+            # Sadece ilaç isimlerini ve ilk 2 anlamlı kelimeyi yakalamaya çalışalım
+            simple_words = [w for w in user_question.split() if len(w) > 3][:4]
+            simple_query = " ".join(simple_words)
+            
+            return {
+                "rag_query": user_question,
+                "pubmed_query": simple_query,
+                "needs_external_info": True
+            }
+
     def answer_question(self, question: str, context: Dict[str, Any] = None) -> str:
         """
-        Answer a general question about features, CML, or CVD
-        Enhanced with RAG retrieval from clinical guidelines and PubMed articles
-
-        Args:
-            question: User's question
-            context: Optional context (e.g., patient data, prediction results)
-
-        Returns:
-            Answer string with references
+        Answer a general question about features, CML, or CVD.
+        Uses generated queries to fetch data from RAG and PubMed.
         """
+        # 1. Generate optimized search queries
+        search_params = self._generate_search_queries(question)
+        
         # Check context for override flags (from frontend toggles)
-        use_rag_for_this_query = self.use_rag
-        use_pubmed_for_this_query = self.use_pubmed
+        # Varsayılan olarak sınıfın ayarlarını al
+        use_rag_config = self.use_rag
+        use_pubmed_config = self.use_pubmed
         
-        # Check if this is a patient-specific question (about the current patient's values/data)
-        # Note: The chatbot is used by doctors, not patients, so questions are about "the patient" not "my"
-        is_patient_specific = False
+        # Context'ten gelen zorlamaları kontrol et
         if context:
-            # Check if we have patient data or prediction in context
-            has_patient_data = bool(context.get('patient_data')) or bool(context.get('prediction'))
-            
-            if has_patient_data:
-                # Check if question is about the current patient's specific values/data
-                question_lower = question.lower()
-                patient_keywords = [
-                    'this patient', 'the patient', 'patient\'s', 'patients\'',
-                    'patient risk', 'patient score', 'patient\'s risk', 'patient\'s score',
-                    'risk score', 'this risk', 'the risk', 'this score', 'the score',
-                    'shap', 'contribution', 'feature importance', 'factor contribution',
-                    'this value', 'these values', 'patient value', 'patient values',
-                    'explain the risk', 'why is the risk', 'what does the risk',
-                    'explain this', 'explain these', 'what does this mean',
-                    'compare', 'difference', 'better', 'worse', 'change'
-                ]
-                is_patient_specific = any(kw in question_lower for kw in patient_keywords)
-            
-            # Override with context values if provided
+            # Eğer context'te 'use_guideline_sources' varsa ve True ise, sınıf ayarını ez
             if 'use_guideline_sources' in context:
-                use_rag_for_this_query = context.get('use_guideline_sources', True) and self.use_rag
+                use_rag_config = context.get('use_guideline_sources') and self.use_rag
+            
+            # Eğer context'te 'use_pubmed_sources' varsa ve True ise, sınıf ayarını ez
             if 'use_pubmed_sources' in context:
-                use_pubmed_for_this_query = context.get('use_pubmed_sources', True) and self.use_pubmed
+                use_pubmed_config = context.get('use_pubmed_sources') and self.use_pubmed
         
-        # If this is a patient-specific question, don't use external sources
-        if is_patient_specific:
-            use_rag_for_this_query = False
-            use_pubmed_for_this_query = False
+        force_search = False
+        trigger_words = ['pubmed', 'search', 'find', 'study', 'article', 'guideline', 'reference']
+        if any(w in question.lower() for w in trigger_words):
+            force_search = True
+
+        # Arama yapmalı mıyız? (GPT "evet" dediyse VEYA biz zorluyorsak VEYA butonlar açıksa)
+        # Butonlar açıksa her zaman aramaya çalışmak en güvenlisidir.
+        should_search = search_params.get("needs_external_info", True) or force_search or (use_rag_config or use_pubmed_config)
         
-        # Retrieve relevant information from clinical guidelines (RAG)
         guideline_context = ""
+        pubmed_context = ""
         references = []
         
-        if use_rag_for_this_query and self.rag_service:
+        # --- RAG Retrieval ---
+        if use_rag_config and should_search and self.rag_service:
             try:
-                rag_results = self.rag_service.retrieve(question, n_results=3)
+                query_text = search_params["rag_query"]
+                # Eğer query çok boşsa, orijinal soruyu kullan
+                if len(query_text) < 5: 
+                    query_text = question
+                    
+                print(f"DEBUG: Searching RAG with: {query_text}")
+                
+                rag_results = self.rag_service.retrieve(query_text, n_results=4)
+                
                 if rag_results:
-                    guideline_context = "\n\nRelevant information from clinical guidelines:\n"
+                    guideline_context = "\n\n=== Retrieved Clinical Guidelines ===\n"
                     for i, result in enumerate(rag_results, 1):
-                        guideline_context += f"\n[{i}] {result['text'][:500]}...\n"
-                        guideline_context += f"   Source: {result['source']}, Page: {result['page']}\n"
+                        guideline_context += f"Source [{i}]: {result['source']} (Page {result['page']})\n"
+                        guideline_context += f"Content: {result['text'][:600]}...\n\n"
                         references.append({
                             'type': 'guideline',
                             'source': result['source'],
@@ -180,22 +245,27 @@ class KnowledgeAgent:
             except Exception as e:
                 print(f"Error retrieving from RAG: {e}")
 
-        # Retrieve relevant PubMed articles
-        pubmed_context = ""
-        if use_pubmed_for_this_query and self.pubmed_service:
+        # --- PubMed Retrieval ---
+        if use_pubmed_config and should_search and self.pubmed_service:
             try:
-                # Search PubMed for relevant articles
+                query_text = search_params["pubmed_query"]
+                # Eğer query çok boşsa veya GPT saçma bir şey döndüyse düzelt
+                if len(query_text) < 5 or "pubmed" in query_text.lower():
+                    query_text = f"CML cardiovascular {question}"
+
+                print(f"DEBUG: Searching PubMed with: {query_text}")
+                
                 articles = self.pubmed_service.search_articles(
-                    query=f"CML cardiovascular {question}",
-                    max_results=2
+                    query=query_text,
+                    max_results=3
                 )
                 if articles:
-                    pubmed_context = "\n\nRelevant scientific articles from PubMed:\n"
+                    pubmed_context = "\n\n=== Retrieved PubMed Articles ===\n"
                     for article in articles:
-                        pubmed_context += f"\n- {article['title']}\n"
-                        pubmed_context += f"  {article['journal']} ({article['year']})\n"
-                        pubmed_context += f"  Abstract: {article['abstract'][:300]}...\n"
-                        pubmed_context += f"  PMID: {article['pmid']}\n"
+                        pubmed_context += f"Title: {article['title']}\n"
+                        pubmed_context += f"Journal: {article['journal']} ({article['year']})\n"
+                        pubmed_context += f"Abstract: {article['abstract'][:500]}...\n"
+                        pubmed_context += f"PMID: {article['pmid']}\n\n"
                         references.append({
                             'type': 'pubmed',
                             'pmid': article['pmid'],
@@ -203,32 +273,40 @@ class KnowledgeAgent:
                             'journal': article['journal'],
                             'year': article['year']
                         })
+                else:
+                    print("DEBUG: No articles found in PubMed.")
             except Exception as e:
                 print(f"Error searching PubMed: {e}")
 
         # Build enhanced system prompt
-        system_prompt = f"""You are a medical knowledge assistant specializing in:
-- Chronic Myeloid Leukemia (CML)
-- Cardiovascular Disease (CVD)
-- Laboratory values and their clinical significance
-- TKI medications for CML
+        system_prompt = f"""You are a specialized medical knowledge assistant for CML and CVD risk.
 
-Base knowledge:
+CONTEXT AND SOURCES:
 {self.knowledge_base}
+
 {guideline_context}
+
 {pubmed_context}
 
-Instructions:
-1. Use the clinical guideline information and PubMed articles to provide evidence-based answers
-2. Always cite your sources when referencing guidelines or articles
-3. If information from guidelines conflicts with general knowledge, prioritize guideline information
-4. Provide accurate, evidence-based answers. If you're not certain, say so.
-5. Format references clearly at the end of your answer."""
+INSTRUCTIONS:
+1. Answer the user's question based primarily on the 'Retrieved Clinical Guidelines' and 'PubMed Articles' provided above.
+2. If the retrieved text contains the answer, cite the source clearly (e.g., "According to the ELN guidelines...").
+3. DO NOT GENERATE A "REFERENCES" OR "SOURCES" SECTION AT THE END.** The system will automatically append the verified reference list.
+4. Do NOT invent references. Only use what is provided in the context.
+4. If the retrieved documents do not answer the question, you may use your general medical knowledge but explicitly state that this information is general and not from the uploaded documents.
+5. Be professional, concise, and evidence-based.
+"""
 
         # Build user prompt with context if provided
         user_prompt = question
         if context:
-            user_prompt = f"Context:\n{json.dumps(context, indent=2)}\n\nQuestion: {question}"
+            patient_summary = "Patient Context:\n"
+            if 'patient_data' in context:
+                 patient_summary += f"Patient Data: {json.dumps(context['patient_data'])}\n"
+            if 'prediction' in context:
+                 patient_summary += f"Risk Prediction: {context['prediction']}\n"
+            
+            user_prompt = f"{patient_summary}\n\nUser Question: {question}"
 
         try:
             response = self.client.chat.completions.create(
@@ -238,19 +316,28 @@ Instructions:
                     {"role": "user", "content": user_prompt}
                 ],
                 temperature=0.3,
-                max_tokens=800  # Increased for longer responses with references
+                max_tokens=1000
             )
 
             answer = response.choices[0].message.content
 
-            # Add formatted references
+            # Add formatted references to the end
             if references:
-                answer += "\n\n--- References ---\n"
-                for i, ref in enumerate(references, 1):
+                answer += "\n\n**References & Sources:**\n"
+                seen_refs = set()
+                for ref in references:
                     if ref['type'] == 'guideline':
-                        answer += f"{i}. Clinical Guideline: {ref['source']}, Page {ref['page']}\n"
+                        ref_str = f"- 📄 **Guideline:** {ref['source']} (Page {ref['page']})"
                     elif ref['type'] == 'pubmed':
-                        answer += f"{i}. {ref['title']}. {ref['journal']} ({ref['year']}). PMID: {ref['pmid']}\n"
+                        pmid = ref.get('pmid', 'N/A')
+                        link = f"https://pubmed.ncbi.nlm.nih.gov/{pmid}/" if pmid != 'N/A' else ""
+                        ref_str = f"- 🔬 **Article:** {ref['title']}\n" \
+                                  f"  *Journal:* {ref['journal']} ({ref['year']})\n" \
+                                  f"  *PMID:* [{pmid}]({link})"
+                    
+                    if ref_str not in seen_refs:
+                        answer += ref_str + "\n"
+                        seen_refs.add(ref_str)
 
             return answer
 
@@ -260,174 +347,57 @@ Instructions:
     def explain_feature_importance(self, feature_name: str) -> str:
         """
         Explain why a feature is important for CVD risk
-
-        Args:
-            feature_name: Name of the feature
-
-        Returns:
-            Explanation of feature importance
         """
         feature_info = FEATURE_INFO.get(feature_name, {})
-
-        prompt = f"""Explain why {feature_info.get('name', feature_name)} is important for cardiovascular disease risk in CML patients.
-
-Feature Information:
-- Normal Range: {feature_info.get('normal_range', 'N/A')} {feature_info.get('unit', '')}
-- Description: {feature_info.get('description', 'N/A')}
-
-Cover:
-1. What this measurement tells us about health
-2. How abnormal values contribute to CVD risk
-3. Why this is particularly relevant for CML patients
-4. What values would be concerning"""
-
-        return self.answer_question(prompt)
+        question = f"Explain why {feature_info.get('name', feature_name)} is important for cardiovascular disease risk in CML patients. Include normal ranges and what abnormal values indicate."
+        return self.answer_question(question)
 
     def compare_features(self, feature1: str, feature2: str) -> str:
         """
         Compare two features and explain their relationship
-
-        Args:
-            feature1: First feature name
-            feature2: Second feature name
-
-        Returns:
-            Comparison explanation
         """
         info1 = FEATURE_INFO.get(feature1, {})
         info2 = FEATURE_INFO.get(feature2, {})
-
-        prompt = f"""Compare these two medical measurements and explain their relationship:
-
-Feature 1: {info1.get('name', feature1)}
-- Normal Range: {info1.get('normal_range', 'N/A')} {info1.get('unit', '')}
-- Description: {info1.get('description', 'N/A')}
-
-Feature 2: {info2.get('name', feature2)}
-- Normal Range: {info2.get('normal_range', 'N/A')} {info2.get('unit', '')}
-- Description: {info2.get('description', 'N/A')}
-
-Explain:
-1. How these measurements relate to each other
-2. Do they indicate similar or different health aspects?
-3. How do they collectively contribute to CVD risk?
-4. Are there typical patterns when both are abnormal?"""
-
-        return self.answer_question(prompt)
+        question = f"Compare {info1.get('name', feature1)} and {info2.get('name', feature2)} in the context of CML and CVD risk. How do they relate to each other?"
+        return self.answer_question(question)
 
     def get_feature_recommendations(self, feature_name: str, current_value: float) -> str:
         """
         Get recommendations for improving a specific feature value
-
-        Args:
-            feature_name: Name of the feature
-            current_value: Current value
-
-        Returns:
-            Recommendations
         """
         feature_info = FEATURE_INFO.get(feature_name, {})
-        name = feature_info.get('name', feature_name)
-        unit = feature_info.get('unit', '')
-        normal_range = feature_info.get('normal_range', 'N/A')
-
-        prompt = f"""A CML patient has this measurement:
-
-{name}: {current_value} {unit}
-Normal Range: {normal_range}
-
-Provide:
-1. Is this value within normal range?
-2. If abnormal, what are evidence-based recommendations to improve it?
-3. Lifestyle modifications
-4. When to consult with healthcare provider
-5. Any CML-specific considerations
-
-Keep recommendations practical and evidence-based."""
-
-        return self.answer_question(prompt)
+        question = f"A CML patient has a {feature_info.get('name', feature_name)} value of {current_value} {feature_info.get('unit', '')}. Is this normal? What are the recommendations to improve this value according to clinical guidelines?"
+        return self.answer_question(question)
 
     def explain_tki_medications(self) -> str:
         """
         Explain TKI medications used in CML treatment
-
-        Returns:
-            Explanation of TKI medications
         """
-        prompt = """Explain the TKI (Tyrosine Kinase Inhibitor) medications used for CML treatment:
-
-Medications in our model:
-1. Imatinib (Gleevec)
-2. Dasatinib (Sprycel)
-3. Nilotinib (Tasigna)
-4. Ponatinib (Iclusig)
-5. Ruxolitinib (JAK inhibitor)
-
-For each, briefly explain:
-- Mechanism of action
-- Typical dosing
-- Known cardiovascular effects
-- Why CVD monitoring is important
-
-Keep it concise but clinically relevant."""
-
-        return self.answer_question(prompt)
+        question = "Explain the cardiovascular risks and monitoring requirements for these TKI medications: Imatinib, Dasatinib, Nilotinib, Ponatinib, and Ruxolitinib."
+        return self.answer_question(question)
 
     def get_risk_factor_education(self, risk_factors: List[str]) -> str:
         """
         Provide educational information about specific risk factors
-
-        Args:
-            risk_factors: List of feature names that are risk factors
-
-        Returns:
-            Educational content
         """
-        factors_info = []
-        for factor in risk_factors[:5]:  # Limit to top 5
-            info = FEATURE_INFO.get(factor, {})
-            factors_info.append({
-                "name": info.get('name', factor),
-                "normal_range": info.get('normal_range', 'N/A'),
-                "description": info.get('description', 'N/A')
-            })
-
-        prompt = f"""Provide patient education about these CVD risk factors:
-
-{json.dumps(factors_info, indent=2)}
-
-For each factor, explain:
-1. What it measures in simple terms
-2. Why it affects heart health
-3. Simple ways to improve it
-4. Warning signs to watch for
-
-Use patient-friendly language suitable for health literacy."""
-
-        return self.answer_question(prompt)
+        factors_str = ", ".join(risk_factors[:5])
+        question = f"Provide patient education for these cardiovascular risk factors in CML context: {factors_str}. Explain simple ways to manage them."
+        return self.answer_question(question)
 
     def get_all_features_info(self) -> Dict[str, Dict[str, str]]:
         """
         Get information about all features in the model
-
-        Returns:
-            Dictionary of all feature information
         """
         return FEATURE_INFO
 
 
 if __name__ == "__main__":
     # Test requires API key
-    import os
     if not os.getenv("OPENAI_API_KEY"):
         print("Set OPENAI_API_KEY environment variable to test")
     else:
         agent = KnowledgeAgent()
-
-        # Test question
-        answer = agent.answer_question("What is the normal range for BMI and why does it matter for CVD?")
+        
+        print("\n--- Testing General Query ---")
+        answer = agent.answer_question("Does Sprycel cause heart problems?")
         print("Answer:", answer)
-
-        # Test feature explanation
-        explanation = agent.explain_feature_importance("systolic")
-        print("\nFeature Importance:", explanation)

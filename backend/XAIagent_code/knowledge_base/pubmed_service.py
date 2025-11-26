@@ -1,268 +1,145 @@
 """
-PubMed Service - Retrieves scientific articles from PubMed
-Can be used directly or through MCP (Model Context Protocol)
+PubMed Service - Optimized for RAG/LLM Context
+Removes BioPython dependency for better stability and XML parsing control.
 """
-import sys
-from pathlib import Path
+import requests
+import xml.etree.ElementTree as ET
 from typing import List, Dict, Any, Optional
-import json
 import time
-
-try:
-    from Bio import Entrez
-    from Bio import Medline
-    BIOPYTHON_AVAILABLE = True
-except ImportError:
-    BIOPYTHON_AVAILABLE = False
-
-try:
-    import requests
-    REQUESTS_AVAILABLE = True
-except ImportError:
-    REQUESTS_AVAILABLE = False
-
-# MCP imports
-try:
-    from knowledge_base.mcp_pubmed_server import PubMedMCPClient
-    MCP_AVAILABLE = True
-except ImportError:
-    MCP_AVAILABLE = False
-
 
 class PubMedService:
     """
-    Service for retrieving scientific articles from PubMed
-    Can use MCP (Model Context Protocol) for access
+    Lightweight PubMed Service using direct NCBI E-utilities API.
     """
     
-    def __init__(self, 
-                 email: str = "your.email@example.com",
-                 use_mcp: bool = False,
-                 mcp_server_url: Optional[str] = None):
+    BASE_URL = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils"
+
+    def __init__(self, email: str = "demo@example.com", use_mcp: bool = False):
+        # use_mcp parametresini uyumluluk için tutuyoruz ama kullanmıyoruz
+        self.email = email
+        self.session = requests.Session()
+
+    def _get_text(self, element: Optional[ET.Element], default: str = "") -> str:
+        """Helper to safely extract text from XML element."""
+        if element is not None and element.text:
+            return element.text
+        return default
+
+    def search_articles(self, query: str, max_results: int = 5, sort_by: str = "relevance") -> List[Dict[str, Any]]:
         """
-        Initialize PubMed service
-        
-        Args:
-            email: Email address for Entrez API (required by NCBI)
-            use_mcp: Whether to use MCP protocol for access
-            mcp_server_url: URL of MCP server (if remote)
+        Search PubMed and return clean, formatted JSON for the LLM.
         """
-        self.use_mcp = use_mcp and MCP_AVAILABLE
-        self.mcp_client = None
-        
-        if self.use_mcp:
-            try:
-                self.mcp_client = PubMedMCPClient(server_url=mcp_server_url)
-                print("✓ PubMed Service: Using MCP protocol")
-            except Exception as e:
-                print(f"Warning: Could not initialize MCP client: {e}")
-                self.use_mcp = False
-        
-        if not self.use_mcp:
-            if not BIOPYTHON_AVAILABLE:
-                raise ImportError("BioPython not installed. Run: pip install biopython")
-            
-            Entrez.email = email
-            self.api_key = None  # Optional: Get from NCBI for higher rate limits
-    
-    def search_articles(self, 
-                       query: str, 
-                       max_results: int = 10,
-                       sort_by: str = "relevance") -> List[Dict[str, Any]]:
-        """
-        Search PubMed for articles
-        
-        Args:
-            query: Search query (e.g., "CML cardiovascular risk TKI")
-            max_results: Maximum number of results
-            sort_by: Sort order ("relevance", "pub_date", "author")
-            
-        Returns:
-            List of article dictionaries
-        """
-        # Use MCP client if available
-        if self.use_mcp and self.mcp_client:
-            return self.mcp_client.search(query, max_results, sort_by)
-        
-        # Direct API access
         try:
-            # Search PubMed
-            handle = Entrez.esearch(
-                db="pubmed",
-                term=query,
-                retmax=max_results,
-                sort=sort_by,
-                api_key=self.api_key
-            )
-            record = Entrez.read(handle)
-            handle.close()
+            # 1. ESearch: Get PMIDs
+            search_params = {
+                "db": "pubmed",
+                "term": query,
+                "retmode": "json",
+                "retmax": max_results,
+                "sort": sort_by,
+                "email": self.email
+            }
             
-            if not record['IdList']:
+            resp = self.session.get(f"{self.BASE_URL}/esearch.fcgi", params=search_params, timeout=10)
+            resp.raise_for_status()
+            data = resp.json()
+            
+            id_list = data.get("esearchresult", {}).get("idlist", [])
+            
+            if not id_list:
                 return []
+
+            # 2. EFetch: Get Details (XML)
+            fetch_params = {
+                "db": "pubmed",
+                "id": ",".join(id_list),
+                "retmode": "xml",
+                "email": self.email
+            }
             
-            # Fetch article details
-            ids = record['IdList']
-            handle = Entrez.efetch(
-                db="pubmed",
-                id=ids,
-                rettype="medline",
-                retmode="text",
-                api_key=self.api_key
-            )
-            records = Medline.parse(handle)
+            # Fetch XML content
+            fetch_resp = self.session.get(f"{self.BASE_URL}/efetch.fcgi", params=fetch_params, timeout=15)
+            fetch_resp.raise_for_status()
             
-            articles = []
-            for record in records:
-                article = {
-                    'pmid': record.get('PMID', ''),
-                    'title': record.get('TI', 'No title'),
-                    'authors': record.get('AU', []),
-                    'journal': record.get('TA', 'Unknown journal'),
-                    'year': record.get('DP', '').split()[0] if record.get('DP') else 'Unknown',
-                    'abstract': record.get('AB', 'No abstract available'),
-                    'doi': record.get('LID', [''])[0] if record.get('LID') else '',
-                    'mesh_terms': record.get('MH', []),
-                    'keywords': record.get('OT', [])
-                }
-                articles.append(article)
-            
-            handle.close()
-            
-            # Rate limiting (NCBI recommends max 3 requests/second)
-            time.sleep(0.34)
-            
-            return articles
-            
+            # 3. Parse XML manually (More robust than BioPython for Abstracts)
+            return self._parse_pubmed_xml(fetch_resp.content)
+
         except Exception as e:
-            print(f"Error searching PubMed: {e}")
+            print(f"PubMed API Error: {e}")
             return []
-    
-    def search_cml_cvd_articles(self, 
-                                max_results: int = 10,
-                                additional_terms: str = "") -> List[Dict[str, Any]]:
+
+    def _parse_pubmed_xml(self, xml_content: bytes) -> List[Dict[str, Any]]:
         """
-        Search for articles specifically about CML and CVD
-        
-        Args:
-            max_results: Maximum number of results
-            additional_terms: Additional search terms
-            
-        Returns:
-            List of article dictionaries
+        Parses the raw XML from PubMed to extract clean fields.
         """
-        # Use MCP client if available
-        if self.use_mcp and self.mcp_client:
-            return self.mcp_client.search_cml_cvd(max_results, additional_terms)
-        
-        # Direct API access
-        query = f"(chronic myeloid leukemia OR CML) AND (cardiovascular disease OR CVD OR cardiac risk) AND (TKI OR tyrosine kinase inhibitor)"
-        if additional_terms:
-            query += f" AND ({additional_terms})"
-        
-        return self.search_articles(query, max_results=max_results)
-    
-    def get_article_summary(self, pmid: str) -> Optional[Dict[str, Any]]:
-        """
-        Get summary for a specific article by PMID
-        
-        Args:
-            pmid: PubMed ID
-            
-        Returns:
-            Article dictionary or None
-        """
-        # Use MCP client if available
-        if self.use_mcp and self.mcp_client:
-            return self.mcp_client.get_article(pmid)
-        
-        # Direct API access
+        articles = []
         try:
-            handle = Entrez.esummary(db="pubmed", id=pmid, api_key=self.api_key)
-            record = Entrez.read(handle)
-            handle.close()
+            root = ET.fromstring(xml_content)
             
-            if record:
-                summary = record[0]
-                return {
-                    'pmid': summary.get('Id', pmid),
-                    'title': summary.get('Title', ''),
-                    'authors': summary.get('AuthorList', []),
-                    'journal': summary.get('Source', ''),
-                    'year': summary.get('PubDate', ''),
-                    'doi': summary.get('DOI', ''),
-                    'abstract': summary.get('AbstractText', 'No abstract available')
-                }
+            for article_tag in root.findall(".//PubmedArticle"):
+                article_data = {}
+                
+                # Basic Info
+                medline = article_tag.find("MedlineCitation")
+                article = medline.find("Article")
+                
+                # PMID
+                pmid = medline.find("PMID")
+                article_data['pmid'] = self._get_text(pmid)
+                
+                # Title
+                article_data['title'] = self._get_text(article.find("ArticleTitle"))
+                
+                # Journal & Year
+                journal = article.find("Journal")
+                article_data['journal'] = self._get_text(journal.find("Title"))
+                
+                year = journal.find(".//PubDate/Year")
+                if year is not None:
+                    article_data['year'] = year.text
+                else:
+                    # Bazen tarih sadece MedlineDate içindedir
+                    medline_date = journal.find(".//PubDate/MedlineDate")
+                    article_data['year'] = self._get_text(medline_date)[:4]
+
+                # Abstract (Kritik Kısım: Parçalı abstractları birleştirme)
+                abstract_tag = article.find("Abstract")
+                full_abstract = []
+                if abstract_tag is not None:
+                    for text_node in abstract_tag.findall("AbstractText"):
+                        label = text_node.get("Label") # BACKGROUND, RESULTS vs.
+                        text = text_node.text or ""
+                        if label:
+                            full_abstract.append(f"{label}: {text}")
+                        else:
+                            full_abstract.append(text)
+                    article_data['abstract'] = "\n".join(full_abstract)
+                else:
+                    article_data['abstract'] = "No abstract available."
+
+                articles.append(article_data)
+                
         except Exception as e:
-            print(f"Error fetching article {pmid}: {e}")
-        
-        return None
-    
-    def format_article_for_context(self, article: Dict[str, Any]) -> str:
-        """
-        Format article for use as context in LLM prompts
-        
-        Args:
-            article: Article dictionary
+            print(f"XML Parsing Error: {e}")
             
-        Returns:
-            Formatted string
+        return articles
+
+    def search_cml_cvd_articles(self, max_results: int = 5, additional_terms: str = "") -> List[Dict[str, Any]]:
         """
-        formatted = f"Title: {article['title']}\n"
-        formatted += f"Authors: {', '.join(article['authors'][:3])}{' et al.' if len(article['authors']) > 3 else ''}\n"
-        formatted += f"Journal: {article['journal']} ({article['year']})\n"
-        formatted += f"PMID: {article['pmid']}\n"
-        if article.get('doi'):
-            formatted += f"DOI: {article['doi']}\n"
-        formatted += f"\nAbstract:\n{article['abstract']}\n"
-        
-        return formatted
-    
-    def search_and_format(self, 
-                         query: str, 
-                         max_results: int = 5) -> str:
+        Domain-specific search wrapper.
         """
-        Search PubMed and format results for LLM context
-        
-        Args:
-            query: Search query
-            max_results: Number of results
+        base_query = "(chronic myeloid leukemia OR CML) AND (cardiovascular OR heart) AND (TKI OR tyrosine kinase)"
+        if additional_terms:
+            full_query = f"{base_query} AND {additional_terms}"
+        else:
+            full_query = base_query
             
-        Returns:
-            Formatted string with article summaries
-        """
-        # Use MCP client if available
-        if self.use_mcp and self.mcp_client:
-            return self.mcp_client.format_for_rag(query, max_results)
-        
-        # Direct API access
-        articles = self.search_articles(query, max_results=max_results)
-        
-        if not articles:
-            return "No relevant articles found in PubMed."
-        
-        formatted = f"Relevant scientific articles from PubMed ({len(articles)} results):\n\n"
-        for i, article in enumerate(articles, 1):
-            formatted += f"--- Article {i} ---\n"
-            formatted += self.format_article_for_context(article)
-            formatted += "\n"
-        
-        return formatted
+        return self.search_articles(full_query, max_results=max_results)
 
-
+# Test Block
 if __name__ == "__main__":
-    # Test PubMed service
-    if not BIOPYTHON_AVAILABLE:
-        print("BioPython not installed. Install with: pip install biopython")
-    else:
-        service = PubMedService(email="test@example.com")
-        
-        # Test search
-        print("Searching for CML and CVD articles...")
-        articles = service.search_cml_cvd_articles(max_results=3)
-        
-        print(f"\nFound {len(articles)} articles:")
-        for article in articles:
-            print(f"\n{article['title']}")
-            print(f"  {article['journal']} ({article['year']})")
-            print(f"  PMID: {article['pmid']}")
-
+    service = PubMedService()
+    results = service.search_articles("Dasatinib cardiovascular risk", max_results=2)
+    for res in results:
+        print(f"\nTitle: {res['title']}")
+        print(f"Abstract: {res['abstract'][:100]}...")

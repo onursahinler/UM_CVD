@@ -60,6 +60,66 @@ class ExplanationAgent:
             except Exception as e:
                 print(f"Warning: Could not initialize RAG service: {e}")
                 self.use_rag = False
+                
+    def _calculate_changes(self, result1: Dict, result2: Dict) -> Dict:
+        """
+        Helper function: Mathematically calculates the difference between two scenarios.
+        """
+        changes = {
+            "risk_change": 0.0,
+            "feature_changes": [],
+            "shap_impacts": []
+        }
+        
+        try:
+            # 1. Risk Score Difference
+            r1 = float(result1.get("risk_score", 0))
+            r2 = float(result2.get("risk_score", 0))
+            changes["risk_change"] = r2 - r1 
+            changes["r1"] = r1
+            changes["r2"] = r2
+
+            # 2. Input Feature Changes
+            f1 = result1.get("feature_values", {})
+            f2 = result2.get("feature_values", {})
+            all_keys = set(f1.keys()) | set(f2.keys())
+            
+            for k in all_keys:
+                val1 = f1.get(k)
+                val2 = f2.get(k)
+                if isinstance(val1, (int, float)) and isinstance(val2, (int, float)):
+                    if abs(val1 - val2) > 0.01:
+                        feat_info = FEATURE_INFO.get(k, {})
+                        unit = feat_info.get('unit', '')
+                        name = feat_info.get('name', k)
+                        changes["feature_changes"].append({
+                            "feature": name,
+                            "key": k,
+                            "from": val1,
+                            "to": val2,
+                            "unit": unit
+                        })
+
+            # 3. SHAP Value Changes
+            s1 = result1.get("shap_values", {})
+            s2 = result2.get("shap_values", {})
+            for k in all_keys:
+                shap1 = float(s1.get(k, 0))
+                shap2 = float(s2.get(k, 0))
+                diff = shap2 - shap1
+                if abs(diff) > 0.005: 
+                    feat_info = FEATURE_INFO.get(k, {})
+                    name = feat_info.get('name', k)
+                    changes["shap_impacts"].append({
+                        "feature": name,
+                        "impact_change": diff
+                    })
+            changes["shap_impacts"].sort(key=lambda x: abs(x["impact_change"]), reverse=True)
+            
+        except Exception as e:
+            print(f"Error calculating changes: {e}")
+            
+        return changes
 
     def explain_prediction(self, prediction_result: Dict[str, Any], detail_level: str = "moderate") -> str:
         """
@@ -239,55 +299,89 @@ Provide a 2-3 sentence explanation of:
             return f"Error explaining feature: {e}"
 
     def compare_predictions(self, result1: Dict[str, Any], result2: Dict[str, Any],
-                          label1: str = "Scenario 1", label2: str = "Scenario 2") -> str:
+                          label1: str = "Original", label2: str = "New",
+                          user_question: str = "Compare these results.") -> str: # <-- YENİ PARAMETRE
         """
-        Compare two predictions and explain the differences
-
-        Args:
-            result1: First prediction result
-            result2: Second prediction result
-            label1: Label for first scenario
-            label2: Label for second scenario
-
-        Returns:
-            Comparison explanation
+        Compare two predictions and explain the differences using mathematical deltas.
         """
-        risk_diff = result2["risk_score"] - result1["risk_score"]
-        risk_change = "increased" if risk_diff > 0 else "decreased"
+        # 1. Calculate mathematical differences first
+        analysis = self._calculate_changes(result1, result2)
+        
+        # 2. Prepare text summaries for the prompt
+        risk_direction = "increased" if analysis["risk_change"] > 0 else "decreased"
+        point_diff = abs(analysis["risk_change"]) * 100
+        
+        # Describe what the user changed (Inputs)
+        if analysis["feature_changes"]:
+            changes_text = "User Modifications:\n"
+            for ch in analysis["feature_changes"]:
+                changes_text += f"- {ch['feature']}: Changed from {ch['from']} {ch['unit']} to {ch['to']} {ch['unit']}\n"
+        else:
+            changes_text = "No specific input features were modified (result might differ due to model variability)."
 
-        prompt = f"""Compare these two CVD risk predictions:
+        # Describe why the score changed (SHAP Impact)
+        impact_text = "Impact Analysis:\n"
+        for imp in analysis["shap_impacts"][:3]:
+            direction = "increased risk" if imp['impact_change'] > 0 else "lowered risk"
+            impact_text += f"- {imp['feature']}: This change {direction} significantly.\n"
 
-{label1}:
-- Risk Score: {result1['risk_score']:.1%} ({result1['risk_level']})
-- Top Factors: {list(result1['shap_values'].items())[:3]}
+        # RAG Retrieval
+        guideline_text = ""
+        references = []
+        
+        if self.use_rag and self.rag_service and analysis["feature_changes"]:
+            try:
+                changed_feat = analysis["feature_changes"][0]['feature']
+                query = f"{changed_feat} impact on cardiovascular risk CML guidelines"
+                results = self.rag_service.retrieve(query, n_results=2)
+                if results:
+                    guideline_text = "\n=== Clinical Context from Guidelines ===\n"
+                    for i, res in enumerate(results):
+                        guideline_text += f"{res['text'][:300]}...\n"
+                        references.append(f"Guideline: {res['source']} (Page {res['page']})")
+            except Exception as e:
+                print(f"Comparison RAG Error: {e}")
 
-{label2}:
-- Risk Score: {result2['risk_score']:.1%} ({result2['risk_level']})
-- Top Factors: {list(result2['shap_values'].items())[:3]}
-
-Risk Change: {risk_change} by {abs(risk_diff):.1%}
-
-Explain:
-1. What changed between scenarios
-2. Why risk {risk_change}
-3. Which factors had the biggest impact
-4. Clinical significance of this change"""
+        system_prompt = f"""You are a medical AI explaining a 'What-If' scenario comparison.
+        
+        COMPARISON DATA:
+        1. {label1} Risk: {analysis['r1']:.1%}
+        2. {label2} Risk: {analysis['r2']:.1%}
+        
+        RESULT: The risk has {risk_direction} by {point_diff:.1f} percentage points.
+        
+        {changes_text}
+        
+        {impact_text}
+        
+        {guideline_text}
+        
+        INSTRUCTIONS:
+        1. Address the user's specific question directly.
+        2. Use the comparison data provided above to support your answer.
+        3. If the user asks "Why", explain the feature changes and SHAP impacts.
+        4. Be concise and encouraging.
+        """
 
         try:
             response = self.client.chat.completions.create(
                 model=self.model,
                 messages=[
-                    {"role": "system", "content": "You are a medical AI assistant comparing CVD risk scenarios."},
-                    {"role": "user", "content": prompt}
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_question} # <-- ARTIK SENİN SORUNU GÖNDERİYORUZ
                 ],
-                temperature=0.3,
-                max_tokens=600
+                temperature=0.3
             )
+            
+            explanation = response.choices[0].message.content
+            
+            if references:
+                explanation += "\n\n**References:**\n" + "\n".join([f"- 📄 {ref}" for ref in references])
 
-            return response.choices[0].message.content
+            return explanation
 
         except Exception as e:
-            return f"Error comparing predictions: {e}"
+            return f"Error comparing scenarios: {e}"
 
 
 if __name__ == "__main__":

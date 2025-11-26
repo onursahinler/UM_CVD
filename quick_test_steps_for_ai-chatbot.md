@@ -23,7 +23,7 @@ Expected: Answer with references from PubMed articles
 
 ### Scenario 4: Comparison
 ```
-Toggle: OFF or ON
+Toggle: OFF
 Question: "What changed when I reduced my BMI?"
 Expected: Original vs updated comparison
 ```

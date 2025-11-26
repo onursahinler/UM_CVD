@@ -1,12 +1,12 @@
 """
 RAG (Retrieval-Augmented Generation) Service for Clinical Guidelines
-Handles PDF processing, embedding, and retrieval of clinical guideline content
+Fixed: Better chunking logic and duplication prevention
 """
 import os
 import sys
 from pathlib import Path
-from typing import List, Dict, Any, Optional, Tuple
-import json
+from typing import List, Dict, Any, Optional
+import hashlib
 
 # PDF Processing
 USE_PDFPLUMBER = False
@@ -45,33 +45,21 @@ except ImportError:
 
 # Add parent directory to path
 sys.path.append(str(Path(__file__).parent.parent))
-from config import OPENAI_API_KEY, OPENAI_MODEL
-
+from config import OPENAI_API_KEY
 
 class RAGService:
     """
     RAG Service for clinical guidelines
-    - Processes PDF documents
-    - Creates embeddings
-    - Stores in vector database
-    - Retrieves relevant chunks for queries
     """
     
     def __init__(self, 
                  use_openai_embeddings: bool = True,
                  collection_name: str = "clinical_guidelines"):
-        """
-        Initialize RAG Service
         
-        Args:
-            use_openai_embeddings: Use OpenAI embeddings (True) or sentence-transformers (False)
-            collection_name: Name of the ChromaDB collection
-        """
         self.base_dir = Path(__file__).parent
         self.pdf_dir = self.base_dir / "pdfs"
         self.vector_db_dir = self.base_dir / "vector_db"
         
-        # Ensure directories exist
         self.pdf_dir.mkdir(parents=True, exist_ok=True)
         self.vector_db_dir.mkdir(parents=True, exist_ok=True)
         
@@ -81,54 +69,41 @@ class RAGService:
         # Initialize embeddings
         if use_openai_embeddings and OPENAI_AVAILABLE and OPENAI_API_KEY:
             self.embedding_client = OpenAI(api_key=OPENAI_API_KEY)
-            self.embedding_model = "text-embedding-3-small"  # Cost-effective
+            self.embedding_model = "text-embedding-3-small"
             print("✓ Using OpenAI embeddings")
         elif SENTENCE_TRANSFORMERS_AVAILABLE:
-            # Multi-language model that supports Dutch
             self.embedding_model = SentenceTransformer('paraphrase-multilingual-MiniLM-L12-v2')
             self.embedding_client = None
-            print("✓ Using sentence-transformers (multilingual) embeddings")
+            print("✓ Using sentence-transformers embeddings")
         else:
-            raise ImportError("No embedding system available. Install openai or sentence-transformers.")
+            raise ImportError("No embedding system available.")
         
-        # Initialize vector database
         if not CHROMA_AVAILABLE:
-            raise ImportError("ChromaDB not installed. Run: pip install chromadb")
+            raise ImportError("ChromaDB not installed.")
         
         self.client = chromadb.PersistentClient(
             path=str(self.vector_db_dir),
             settings=Settings(anonymized_telemetry=False)
         )
         
-        # Get or create collection
         try:
             self.collection = self.client.get_collection(name=collection_name)
             print(f"✓ Loaded existing collection: {collection_name}")
         except:
             self.collection = self.client.create_collection(
                 name=collection_name,
-                metadata={"description": "Clinical guidelines for CVD risk assessment in CML patients"}
+                metadata={"description": "Clinical guidelines for CVD risk assessment"}
             )
             print(f"✓ Created new collection: {collection_name}")
     
     def extract_text_from_pdf(self, pdf_path: Path) -> List[Dict[str, Any]]:
-        """
-        Extract text from PDF file, preserving page information
-        
-        Args:
-            pdf_path: Path to PDF file
-            
-        Returns:
-            List of dictionaries with 'text', 'page', 'source' keys
-        """
+        """Extract text from PDF file."""
         if not PDF_AVAILABLE:
-            raise ImportError("PDF library not available. Install PyPDF2 or pdfplumber")
+            raise ImportError("PDF library not available.")
         
         chunks = []
-        
         try:
             if USE_PDFPLUMBER:
-                # Use pdfplumber for better text extraction
                 with pdfplumber.open(pdf_path) as pdf:
                     for page_num, page in enumerate(pdf.pages, start=1):
                         text = page.extract_text()
@@ -139,7 +114,6 @@ class RAGService:
                                 'source': pdf_path.name
                             })
             else:
-                # Use PyPDF2 as fallback
                 with open(pdf_path, 'rb') as file:
                     pdf_reader = PyPDF2.PdfReader(file)
                     for page_num, page in enumerate(pdf_reader.pages, start=1):
@@ -158,144 +132,150 @@ class RAGService:
     
     def chunk_text(self, text: str, chunk_size: int = 1000, overlap: int = 200) -> List[str]:
         """
-        Split text into overlapping chunks at paragraph level
-        
-        Args:
-            text: Text to chunk
-            chunk_size: Target chunk size in characters
-            overlap: Overlap between chunks
-            
-        Returns:
-            List of text chunks
+        Split text into overlapping chunks respecting word boundaries.
+        Fixes the issue where words were cut in half.
         """
-        # First, try to split by paragraphs
-        paragraphs = text.split('\n\n')
-        
-        chunks = []
-        current_chunk = ""
-        
-        for para in paragraphs:
-            para = para.strip()
-            if not para:
-                continue
+        if not text:
+            return []
             
-            # If adding this paragraph would exceed chunk size, save current chunk
-            if current_chunk and len(current_chunk) + len(para) > chunk_size:
-                chunks.append(current_chunk.strip())
-                # Start new chunk with overlap
-                if overlap > 0 and len(current_chunk) > overlap:
-                    current_chunk = current_chunk[-overlap:] + " " + para
-                else:
-                    current_chunk = para
-            else:
-                if current_chunk:
-                    current_chunk += "\n\n" + para
-                else:
-                    current_chunk = para
-        
-        # Add remaining chunk
-        if current_chunk:
-            chunks.append(current_chunk.strip())
-        
+        chunks = []
+        start = 0
+        text_len = len(text)
+
+        while start < text_len:
+            end = start + chunk_size
+            
+            # If we are not at the end of the text, try to find a natural break point
+            if end < text_len:
+                # Look for the last period or newline in the chunk window to break safely
+                # If not found, look for the last space
+                last_period = text.rfind('. ', start, end)
+                last_newline = text.rfind('\n', start, end)
+                last_space = text.rfind(' ', start, end)
+                
+                if last_period != -1 and last_period > start + (chunk_size * 0.5):
+                    end = last_period + 1
+                elif last_newline != -1 and last_newline > start + (chunk_size * 0.5):
+                    end = last_newline
+                elif last_space != -1:
+                    end = last_space
+            
+            # Extract chunk and clean it
+            chunk = text[start:end].strip()
+            if chunk:
+                chunks.append(chunk)
+            
+            # Move start pointer forward, subtracting overlap
+            # Ensure we don't get stuck in an infinite loop
+            step = max(1, end - start - overlap)
+            start += step
+            
+            # Optimization: Snap 'start' to the nearest space to avoid starting with half a word
+            if start < text_len:
+                 next_space = text.find(' ', start)
+                 if next_space != -1 and next_space - start < 20: # Only adjust if space is close
+                     start = next_space + 1
+
         return chunks
     
     def create_embeddings(self, texts: List[str]) -> List[List[float]]:
-        """
-        Create embeddings for a list of texts
-        
-        Args:
-            texts: List of texts to embed
-            
-        Returns:
-            List of embedding vectors
-        """
         if self.use_openai_embeddings and self.embedding_client:
-            # Use OpenAI embeddings
+            # Clean newlines which can negatively affect embeddings
+            cleaned_texts = [t.replace("\n", " ") for t in texts]
             response = self.embedding_client.embeddings.create(
                 model=self.embedding_model,
-                input=texts
+                input=cleaned_texts
             )
             return [item.embedding for item in response.data]
         else:
-            # Use sentence-transformers
             embeddings = self.embedding_model.encode(texts, show_progress_bar=False)
             return embeddings.tolist()
     
-    def process_pdf(self, pdf_path: Path, chunk_size: int = 1000) -> int:
+    def _is_file_processed(self, filename: str) -> bool:
+        """Check if a file has already been processed in the DB."""
+        try:
+            # Query for just one result with this source
+            result = self.collection.get(
+                where={"source": filename},
+                limit=1
+            )
+            return len(result['ids']) > 0
+        except Exception:
+            return False
+
+    def process_pdf(self, pdf_path: Path, chunk_size: int = 1000, force_reprocess: bool = False) -> int:
         """
-        Process a PDF file and add it to the vector database
-        
-        Args:
-            pdf_path: Path to PDF file
-            chunk_size: Target chunk size for text splitting
-            
-        Returns:
-            Number of chunks added
+        Process a PDF file and add it to the vector database.
+        Includes duplication check.
         """
         if not pdf_path.exists():
-            raise FileNotFoundError(f"PDF not found: {pdf_path}")
+            print(f"Error: PDF not found: {pdf_path}")
+            return 0
+            
+        # Check if already processed
+        if not force_reprocess and self._is_file_processed(pdf_path.name):
+            print(f"Skipping {pdf_path.name} (already in database)")
+            return 0
         
         print(f"Processing PDF: {pdf_path.name}")
         
-        # Extract text from PDF
+        # If reprocessing, delete old chunks first
+        if force_reprocess and self._is_file_processed(pdf_path.name):
+            print(f"Removing old entries for {pdf_path.name}...")
+            self.collection.delete(where={"source": pdf_path.name})
+
+        # Extract text
         page_chunks = self.extract_text_from_pdf(pdf_path)
         
         if not page_chunks:
             print(f"Warning: No text extracted from {pdf_path.name}")
             return 0
         
-        # Further chunk the text
+        # Create Chunks
         all_chunks = []
         for page_chunk in page_chunks:
             text_chunks = self.chunk_text(page_chunk['text'], chunk_size=chunk_size)
-            for chunk in text_chunks:
+            for i, chunk in enumerate(text_chunks):
                 all_chunks.append({
                     'text': chunk,
                     'page': page_chunk['page'],
-                    'source': page_chunk['source']
+                    'source': page_chunk['source'],
+                    'chunk_id': i
                 })
         
         if not all_chunks:
-            print(f"Warning: No chunks created from {pdf_path.name}")
             return 0
         
-        # Create embeddings
         print(f"Creating embeddings for {len(all_chunks)} chunks...")
-        texts = [chunk['text'] for chunk in all_chunks]
-        embeddings = self.create_embeddings(texts)
         
-        # Prepare metadata
-        ids = [f"{pdf_path.stem}_{i}" for i in range(len(all_chunks))]
-        metadatas = [
-            {
-                'source': chunk['source'],
-                'page': chunk['page'],
-                'chunk_index': i
-            }
-            for i, chunk in enumerate(all_chunks)
-        ]
+        # Process in batches to avoid API limits
+        batch_size = 100
+        total_chunks = len(all_chunks)
         
-        # Add to collection
-        self.collection.add(
-            ids=ids,
-            embeddings=embeddings,
-            documents=texts,
-            metadatas=metadatas
-        )
+        for i in range(0, total_chunks, batch_size):
+            batch = all_chunks[i:i + batch_size]
+            texts = [c['text'] for c in batch]
+            embeddings = self.create_embeddings(texts)
+            
+            ids = [f"{pdf_path.stem}_p{c['page']}_{c['chunk_id']}_{i+j}" for j, c in enumerate(batch)]
+            metadatas = [
+                {'source': c['source'], 'page': c['page']} 
+                for c in batch
+            ]
+            
+            self.collection.add(
+                ids=ids,
+                embeddings=embeddings,
+                documents=texts,
+                metadatas=metadatas
+            )
+            print(f"  Processed batch {i//batch_size + 1}/{(total_chunks-1)//batch_size + 1}")
         
-        print(f"✓ Added {len(all_chunks)} chunks from {pdf_path.name}")
-        return len(all_chunks)
+        print(f"✓ Successfully added {total_chunks} chunks from {pdf_path.name}")
+        return total_chunks
     
     def process_all_pdfs(self, chunk_size: int = 1000) -> Dict[str, int]:
-        """
-        Process all PDF files in the pdfs directory
-        
-        Args:
-            chunk_size: Target chunk size for text splitting
-            
-        Returns:
-            Dictionary mapping PDF names to number of chunks added
-        """
+        """Process all PDF files in the pdfs directory"""
         pdf_files = list(self.pdf_dir.glob("*.pdf"))
         
         if not pdf_files:
@@ -305,8 +285,10 @@ class RAGService:
         results = {}
         for pdf_path in pdf_files:
             try:
-                num_chunks = self.process_pdf(pdf_path, chunk_size=chunk_size)
-                results[pdf_path.name] = num_chunks
+                # Force reprocess set to False to avoid duplication on restart
+                num_chunks = self.process_pdf(pdf_path, chunk_size=chunk_size, force_reprocess=False)
+                if num_chunks > 0:
+                    results[pdf_path.name] = num_chunks
             except Exception as e:
                 print(f"Error processing {pdf_path.name}: {e}")
                 results[pdf_path.name] = 0
@@ -317,102 +299,60 @@ class RAGService:
                  query: str, 
                  n_results: int = 5,
                  filter_metadata: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
-        """
-        Retrieve relevant chunks from the knowledge base
-        
-        Args:
-            query: Search query
-            n_results: Number of results to return
-            filter_metadata: Optional metadata filters (e.g., {'source': 'guideline.pdf'})
+        """Retrieve relevant chunks."""
+        try:
+            query_embedding = self.create_embeddings([query])[0]
             
-        Returns:
-            List of dictionaries with 'text', 'source', 'page', 'score' keys
-        """
-        # Create query embedding
-        query_embedding = self.create_embeddings([query])[0]
-        
-        # Build where clause for filtering
-        where = filter_metadata if filter_metadata else None
-        
-        # Query collection
-        results = self.collection.query(
-            query_embeddings=[query_embedding],
-            n_results=n_results,
-            where=where
-        )
-        
-        # Format results
-        formatted_results = []
-        if results['documents'] and len(results['documents'][0]) > 0:
-            for i in range(len(results['documents'][0])):
-                formatted_results.append({
-                    'text': results['documents'][0][i],
-                    'source': results['metadatas'][0][i].get('source', 'unknown'),
-                    'page': results['metadatas'][0][i].get('page', 0),
-                    'distance': results['distances'][0][i] if 'distances' in results else None
-                })
-        
-        return formatted_results
-    
-    def get_collection_stats(self) -> Dict[str, Any]:
-        """
-        Get statistics about the collection
-        
-        Returns:
-            Dictionary with collection statistics
-        """
-        count = self.collection.count()
-        
-        # Get unique sources
-        if count > 0:
-            # Sample some documents to get sources
-            sample = self.collection.get(limit=min(100, count))
-            sources = set()
-            if sample['metadatas']:
-                for meta in sample['metadatas']:
-                    if 'source' in meta:
-                        sources.add(meta['source'])
-        else:
-            sources = set()
-        
-        return {
-            'total_chunks': count,
-            'sources': list(sources),
-            'num_sources': len(sources)
-        }
-    
-    def clear_collection(self):
-        """
-        Clear all documents from the collection
-        """
-        self.client.delete_collection(name=self.collection_name)
-        self.collection = self.client.create_collection(
-            name=self.collection_name,
-            metadata={"description": "Clinical guidelines for CVD risk assessment in CML patients"}
-        )
-        print(f"✓ Cleared collection: {self.collection_name}")
+            results = self.collection.query(
+                query_embeddings=[query_embedding],
+                n_results=n_results,
+                where=filter_metadata
+            )
+            
+            formatted_results = []
+            if results['documents'] and len(results['documents'][0]) > 0:
+                for i in range(len(results['documents'][0])):
+                    formatted_results.append({
+                        'text': results['documents'][0][i],
+                        'source': results['metadatas'][0][i].get('source', 'unknown'),
+                        'page': results['metadatas'][0][i].get('page', 0),
+                        'distance': results['distances'][0][i] if 'distances' in results else None
+                    })
+            
+            return formatted_results
+        except Exception as e:
+            print(f"Retrieval error: {e}")
+            return []
 
+    def clear_collection(self):
+        """Clear all documents from the collection"""
+        try:
+            self.client.delete_collection(name=self.collection_name)
+            self.collection = self.client.create_collection(
+                name=self.collection_name,
+                metadata={"description": "Clinical guidelines"}
+            )
+            print(f"✓ Cleared collection: {self.collection_name}")
+        except Exception as e:
+            print(f"Error clearing collection: {e}")
 
 if __name__ == "__main__":
-    # Test the RAG service
-    print("Initializing RAG Service...")
-    rag = RAGService(use_openai_embeddings=True)
-    
-    # Process all PDFs
-    print("\nProcessing PDFs...")
-    results = rag.process_all_pdfs()
-    print(f"\nProcessing results: {results}")
-    
-    # Get stats
-    stats = rag.get_collection_stats()
-    print(f"\nCollection stats: {stats}")
-    
-    # Test retrieval
-    print("\nTesting retrieval...")
-    test_query = "What are the cardiovascular risk factors for CML patients?"
-    results = rag.retrieve(test_query, n_results=3)
-    print(f"\nRetrieved {len(results)} results:")
-    for i, result in enumerate(results, 1):
-        print(f"\n{i}. Source: {result['source']}, Page: {result['page']}")
-        print(f"   Text: {result['text'][:200]}...")
-
+    # Testing Code
+    if not os.getenv("OPENAI_API_KEY"):
+        print("Set OPENAI_API_KEY to test")
+    else:
+        rag = RAGService()
+        
+        # 1. Process PDFs (Only new ones)
+        print("\n--- Processing PDFs ---")
+        rag.process_all_pdfs()
+        
+        # 2. Test Search
+        print("\n--- Testing Search ---")
+        # Use a keyword query like our new Agent does
+        query = "Dasatinib cardiovascular side effects"
+        results = rag.retrieve(query, n_results=3)
+        
+        for i, res in enumerate(results, 1):
+            print(f"\nResult {i} (Source: {res['source']}, Page: {res['page']}):")
+            print(f"{res['text'][:200]}...")
