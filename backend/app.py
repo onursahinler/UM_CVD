@@ -173,146 +173,56 @@ def chat():
         orchestrator = get_orchestrator()
         
         if orchestrator and XAI_AGENT_AVAILABLE:
-            # 1. Ayarlar ve Zorlama (Override)
-            use_guidelines = frontend_context.get('useGuidelineSources', True)
-            use_pubmed = frontend_context.get('usePubmedSources', True)
-            msg_lower = user_message.lower()
+            # --- DEĞİŞİKLİK BURADA BAŞLIYOR ---
             
-            if any(kw in msg_lower for kw in ['pubmed', 'search', 'find article', 'study', 'literature']):
-                use_pubmed = True
-            if any(kw in msg_lower for kw in ['guideline', 'recommendation', 'eln', 'standard']):
-                use_guidelines = True
+            # 1. Frontend Buton Durumlarını Doğrudan Al
+            # "varsayılan True olsun" veya "False olsun" demiyoruz.
+            # Frontend ne yolladıysa onu alıyoruz. (.get ikinci parametresi None olursa diye önlem amaçlı False)
+            use_pubmed_from_frontend = frontend_context.get('usePubmedSources', False)
+            use_guidelines_from_frontend = frontend_context.get('useGuidelineSources', True)
 
-            # 2. SHAP Değerlerini İşle
+            # NOT: Daha önce burada olan "if 'pubmed' in message: use_pubmed = True" 
+            # satırlarını SİLDİK. Artık patron Frontend butonu.
+
+            # 2. Context Hazırla (Risk ve SHAP verileri)
+            risk_val = parse_risk_score(frontend_context.get('riskScore'))
+            
             raw_shap = frontend_context.get('shapValues', {})
             shap_dict = {}
             if isinstance(raw_shap, list):
                 for item in raw_shap:
-                    name = item.get('name') or item.get('feature')
-                    val = item.get('shap') or item.get('value')
-                    if name and val is not None:
-                        shap_dict[name] = float(val)
+                    shap_dict[item.get('name', '')] = float(item.get('shap', 0))
             elif isinstance(raw_shap, dict):
                 shap_dict = {k: float(v) for k, v in raw_shap.items()}
 
-            # 3. Mevcut Tahmin (Current Prediction)
-            risk_val = parse_risk_score(frontend_context.get('riskScore'))
-            
-            current_prediction = {
+            prediction_context = {
                 "risk_score": risk_val,
                 "risk_level": "High" if risk_val > 0.7 else ("Moderate" if risk_val > 0.3 else "Low"),
                 "feature_values": frontend_context.get('patientData', {}),
                 "shap_values": shap_dict
             }
-            
-            # Orchestrator güncelle
-            orchestrator.current_prediction = current_prediction
-            orchestrator.current_patient_data = frontend_context.get('patientData', {})
 
-            # 4. What-If Senaryoları (Updated Results) - GÜVENLİ PARSING
-            raw_updated_results = frontend_context.get('updatedResults', [])
-            formatted_scenarios = []
-            
-            if raw_updated_results:
-                for scen in raw_updated_results:
-                    try:
-                        # Risk skorunu güvenli fonksiyonla çevir
-                        scen_risk = parse_risk_score(scen.get('riskScore'))
-                        
-                        # SHAP değerleri
-                        s_dict = {}
-                        feats_shap = scen.get('featuresWithShap', [])
-                        if isinstance(feats_shap, list):
-                            for item in feats_shap:
-                                s_dict[item.get('name')] = float(item.get('shap', 0))
-                        
-                        clean_scenario = {
-                            "risk_score": scen_risk,
-                            "feature_values": scen.get('patientData', {}),
-                            "shap_values": s_dict,
-                            "risk_level": "High" if scen_risk > 0.7 else ("Moderate" if scen_risk > 0.3 else "Low")
-                        }
-                        formatted_scenarios.append(clean_scenario)
-                    except Exception as e:
-                        print(f"Error formatting scenario: {e}")
-
-                orchestrator.updated_scenarios = formatted_scenarios
-
-            # 5. Agent Context
-            agent_context = {
-                "use_guideline_sources": use_guidelines,
-                "use_pubmed_sources": use_pubmed,
+            # 3. Veriyi Orchestrator'a Paketle
+            orchestrator_context = {
                 "patient_data": frontend_context.get('patientData', {}),
-                "risk_score": frontend_context.get('riskScore', 'N/A'),
-                "prediction": current_prediction,
-                "updated_scenarios_count": len(formatted_scenarios)
+                "prediction": prediction_context,
+                "updated_scenarios": [],
+                # Frontend'den gelen buton bilgisini aynen iletiyoruz:
+                "use_pubmed": use_pubmed_from_frontend,         
+                "use_guidelines": use_guidelines_from_frontend   
             }
 
-            # 6. Yönlendirme (Routing)
-            intent = analyze_message_intent(user_message)
-            response_text = ""
-            is_comparison = any(k in msg_lower for k in ['compare', 'difference', 'what-if', 'change', 'impact'])
-
-            # Senaryo varsa ve karşılaştırma isteniyorsa -> Explanation Agent
-            if is_comparison and formatted_scenarios and orchestrator.explanation_agent:
-                original_rag = orchestrator.explanation_agent.use_rag
-                orchestrator.explanation_agent.use_rag = use_guidelines
-                
-                latest = formatted_scenarios[-1]
-                response_text = orchestrator.explanation_agent.compare_predictions(
-                    orchestrator.current_prediction,
-                    latest,
-                    label1="Original Analysis",
-                    label2="New What-If Scenario",
-                    user_question=user_message
-                )
-                orchestrator.explanation_agent.use_rag = original_rag
-            
-            elif intent == 'explanation' and orchestrator.explanation_agent:
-                original_rag = orchestrator.explanation_agent.use_rag
-                orchestrator.explanation_agent.use_rag = use_guidelines
-                response_text = orchestrator.explanation_agent.explain_prediction(
-                    orchestrator.current_prediction,
-                    detail_level="moderate"
-                )
-                orchestrator.explanation_agent.use_rag = original_rag
-            
-            elif intent == 'intervention' and orchestrator.intervention_agent:
-                original_rag = orchestrator.intervention_agent.use_rag
-                orchestrator.intervention_agent.use_rag = use_guidelines 
-                response_text = orchestrator.intervention_agent.suggest_interventions(
-                    orchestrator.current_prediction
-                )
-                orchestrator.intervention_agent.use_rag = original_rag
-            
-            else:
-                # Knowledge Agent
-                if orchestrator.knowledge_agent:
-                    original_rag = orchestrator.knowledge_agent.use_rag
-                    original_pubmed = orchestrator.knowledge_agent.use_pubmed
-                    orchestrator.knowledge_agent.use_rag = use_guidelines
-                    orchestrator.knowledge_agent.use_pubmed = use_pubmed
-
-                    response_text = orchestrator.knowledge_agent.answer_question(
-                        user_message, 
-                        context=agent_context
-                    )
-
-                    orchestrator.knowledge_agent.use_rag = original_rag
-                    orchestrator.knowledge_agent.use_pubmed = original_pubmed
-                else:
-                    response_text = "Knowledge Agent unavailable."
+            # 4. Yönlendirme (Orchestrator'ı çağır)
+            response_text = orchestrator.route_request(user_message, orchestrator_context)
 
             return jsonify({"status": "success", "response": response_text})
 
         else:
-            return jsonify({"status": "success", "response": f"System in basic mode. Risk: {frontend_context.get('riskScore', 'N/A')}%."})
+            return jsonify({"status": "success", "response": "System unavailable."})
 
     except Exception as e:
         print(f"Chat Error: {e}")
-        import traceback
-        traceback.print_exc()
-        return jsonify({"status": "error", "message": "An error occurred."}), 500
+        return jsonify({"status": "error", "message": str(e)}), 500
 
 if __name__ == '__main__':
     app.run(host="0.0.0.0", port=5000, debug=True)

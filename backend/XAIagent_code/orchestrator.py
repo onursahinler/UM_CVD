@@ -1,5 +1,6 @@
 """
 Agent Orchestrator - Coordinates multiple specialized agents for CVD risk assessment
+Smart Routing Logic Included
 """
 from typing import Dict, Any, Optional
 import json
@@ -13,21 +14,13 @@ from agents.intervention_agent import InterventionAgent
 
 class CVDAgentOrchestrator:
     """
-    Orchestrator that coordinates multiple specialized agents:
-    - PredictionAgent: Makes predictions and computes SHAP values
-    - ExplanationAgent: Explains predictions in natural language
-    - KnowledgeAgent: Answers questions about features and medical concepts
-    - InterventionAgent: Suggests actionable interventions
+    Orchestrator that coordinates multiple specialized agents.
+    Acts as the central 'brain' to route user queries to the correct specialist.
     """
 
     def __init__(self, openai_api_key: Optional[str] = None, use_rag: bool = True, use_pubmed: bool = True):
         """
         Initialize the orchestrator and all agents
-
-        Args:
-            openai_api_key: OpenAI API key for LLM-based agents
-            use_rag: Whether to use RAG system for clinical guidelines
-            use_pubmed: Whether to use PubMed for scientific articles
         """
         print("Initializing CVD Agent System...")
 
@@ -62,293 +55,258 @@ class CVDAgentOrchestrator:
         self.prediction_agent.load_model()
         print("✓ XAI Model loaded\n")
 
-        # Cache for current patient's prediction
+        # Context Cache
         self.current_prediction = None
         self.current_patient_data = None
-        # Cache for updated scenarios (what-if results)
         self.updated_scenarios = []
 
-    def analyze_patient(self, patient_data: Dict[str, float],
-                       detail_level: str = "moderate") -> Dict[str, Any]:
+    def _analyze_intent(self, message: str) -> str:
         """
-        Complete patient analysis workflow
-
-        Args:
-            patient_data: Patient feature dictionary
-            detail_level: "brief", "moderate", or "detailed"
-
-        Returns:
-            Comprehensive analysis including prediction, explanation, and interventions
+        Private method to determine the user's intent based on keywords.
+        Prioritizes specific clinical questions over generic intervention requests.
         """
+        msg = message.lower()
+
+        # PRIORITY 1: Specific Clinical/Treatment Questions -> Knowledge Agent
+        # Even if it says "treatment", words like "discontinue", "eligible", "TFR" imply a specific medical question.
+        clinical_keywords = [
+            'tfr', 'treatment-free', 'discontinue', 'stop', 'quit', 'eligible', 
+            'criteria', 'monitor', 'schedule', 'side effect', 'adverse', 'protocol'
+        ]
+        if any(kw in msg for kw in clinical_keywords):
+            return 'knowledge'
+
+        # PRIORITY 2: Research/Literature -> Knowledge Agent
+        research_keywords = ['pubmed', 'search', 'find', 'literature', 'article', 'study', 'journal', 'guideline']
+        if any(kw in msg for kw in research_keywords):
+            return 'knowledge'
+
+        # PRIORITY 3: Comparison -> Explanation Agent
+        compare_keywords = ['compare', 'difference', 'versus', 'vs', 'between', 'change', 'better', 'worse', 'impact', 'what-if']
+        if any(kw in msg for kw in compare_keywords):
+            return 'explanation'
+
+        # PRIORITY 4: Explanation -> Explanation Agent
+        explain_keywords = ['explain', 'why', 'how', 'meaning', 'interpret', 'contribution', 'shap']
+        if any(kw in msg for kw in explain_keywords):
+            return 'explanation'
+
+        # PRIORITY 5: General Intervention Plan -> Intervention Agent
+        # Only triggers if explicitly asking for a plan/recommendation
+        plan_keywords = ['recommend', 'suggest', 'plan', 'advice', 'manage', 'strategy', 'action plan']
+        if any(kw in msg for kw in plan_keywords):
+            return 'intervention'
+
+        # Default fallback
+        return 'knowledge'
+
+    def route_request(self, user_message: str, context_data: Dict[str, Any] = None) -> str:
+        """
+        The main entry point for chat interactions.
+        Dynamically configures agents based on frontend settings.
+        """
+        # 1. Context ve Ayarları Yükle
+        if context_data:
+            self.current_patient_data = context_data.get('patient_data', self.current_patient_data)
+            if 'prediction' in context_data:
+                self.current_prediction = context_data['prediction']
+            if 'updated_scenarios' in context_data:
+                self.updated_scenarios = context_data['updated_scenarios']
+            
+            # --- KRİTİK DEĞİŞİKLİK: BUTON AYARLARINI UYGULA ---
+            # App.py'dan gelen buton bilgisini alıyoruz
+            # Eğer context'te yoksa varsayılan False/True kullanmıyoruz, ne geldiyse o.
+            frontend_pubmed_setting = context_data.get('use_pubmed')
+            frontend_guideline_setting = context_data.get('use_guidelines')
+
+            # Şimdi bu ayarları Knowledge Agent'a zorla uyguluyoruz
+            if self.knowledge_agent:
+                # Eğer frontend_pubmed_setting None değilse (yani frontend bir şey gönderdiyse) uygula
+                if frontend_pubmed_setting is not None:
+                    self.knowledge_agent.use_pubmed = frontend_pubmed_setting
+                
+                if frontend_guideline_setting is not None:
+                    self.knowledge_agent.use_rag = frontend_guideline_setting
+
+            # Diğer agentların RAG ayarlarını da güncelle
+            if self.explanation_agent and frontend_guideline_setting is not None:
+                self.explanation_agent.use_rag = frontend_guideline_setting
+            
+            if self.intervention_agent and frontend_guideline_setting is not None:
+                self.intervention_agent.use_rag = frontend_guideline_setting
+            
+            print(f"DEBUG: Agent Settings Updated -> PubMed: {self.knowledge_agent.use_pubmed}, Guidelines: {frontend_guideline_setting}")
+
+
+        # 2. Niyet Analizi (Intent Analysis)
+        intent = self._analyze_intent(user_message)
+        print(f"DEBUG: Detected Intent: {intent}")
+
+        # 3. Yönlendirme (Routing)
+        response_text = "I'm not sure how to handle that request."
+
+        # --- ROUTE: EXPLANATION ---
+        if intent == 'explanation' and self.explanation_agent:
+            is_comparison = any(k in user_message.lower() for k in ['compare', 'difference', 'what-if', 'vs'])
+            
+            if is_comparison and self.updated_scenarios:
+                latest_scenario = self.updated_scenarios[-1]
+                response_text = self.explanation_agent.compare_predictions(
+                    self.current_prediction,
+                    latest_scenario,
+                    label1="Original Analysis",
+                    label2="New Scenario",
+                    user_question=user_message
+                )
+            else:
+                response_text = self.explanation_agent.explain_prediction(
+                    self.current_prediction,
+                    detail_level="moderate"
+                )
+
+        # --- ROUTE: INTERVENTION ---
+        elif intent == 'intervention' and self.intervention_agent:
+            msg_lower = user_message.lower()
+            is_specific_question = "?" in user_message or any(q in msg_lower for q in ["how", "is he", "can he", "what is", "when"])
+            
+            if is_specific_question and self.knowledge_agent:
+                print("DEBUG: Intervention intent detected but routed to Knowledge Agent due to question format.")
+                context_for_rag = {"patient_data": self.current_patient_data, "prediction": self.current_prediction}
+                response_text = self.knowledge_agent.answer_question(user_message, context=context_for_rag)
+            else:
+                response_text = self.intervention_agent.suggest_interventions(self.current_prediction)
+
+        # --- ROUTE: KNOWLEDGE (Default) ---
+        elif self.knowledge_agent:
+            context_for_rag = {"patient_data": self.current_patient_data, "prediction": self.current_prediction}
+            # Knowledge agent'a sorarken zaten yukarıda ayarları (use_pubmed) güncellediğimiz için
+            # burada tekrar parametre geçmeye gerek yok, kendi içindeki ayarı kullanacak.
+            response_text = self.knowledge_agent.answer_question(user_message, context=context_for_rag)
+        
+        else:
+            response_text = "The AI agents are not fully initialized. Please check your API key."
+
+        return response_text
+
+    # --- Utility Methods (Kept from original file) ---
+
+    def analyze_patient(self, patient_data: Dict[str, float], detail_level: str = "moderate") -> Dict[str, Any]:
+        """Complete patient analysis workflow"""
         print("Analyzing patient...")
-
-        # Step 1: Make prediction
         prediction = self.prediction_agent.predict(patient_data)
         self.current_prediction = prediction
         self.current_patient_data = patient_data
 
-        print(f"✓ Prediction complete: {prediction['risk_score']:.1%} ({prediction['risk_level']} risk)")
-
-        # Step 2: Generate explanation (if available)
         explanation = None
         if self.explanation_agent:
             explanation = self.explanation_agent.explain_prediction(prediction, detail_level)
-            print("✓ Explanation generated")
 
-        # Step 3: Suggest interventions (if available)
         interventions = None
         if self.intervention_agent:
             interventions = self.intervention_agent.suggest_interventions(prediction)
-            print("✓ Interventions suggested")
-
-        # Step 4: Get top risk and protective factors
-        top_risk_factors = self.prediction_agent.get_top_risk_factors(prediction, n=5)
+        
+        top_risk = self.prediction_agent.get_top_risk_factors(prediction, n=5)
         protective_factors = self.prediction_agent.get_protective_factors(prediction, n=3)
 
         return {
             "prediction": prediction,
             "explanation": explanation,
             "interventions": interventions,
-            "top_risk_factors": top_risk_factors,
+            "top_risk_factors": top_risk,
             "protective_factors": protective_factors
         }
 
     def ask_question(self, question: str) -> str:
-        """
-        Ask a question to the knowledge agent
-
-        Args:
-            question: User's question
-
-        Returns:
-            Answer from knowledge agent
-        """
+        """Ask a question directly (bypassing route_request if needed)"""
         if not self.knowledge_agent:
-            return "Knowledge agent not available. Please provide OpenAI API key."
-
-        # Include current patient context if available
+            return "Knowledge agent not available."
+        
         context = {
             "prediction": self.current_prediction,
             "patient_data": self.current_patient_data
         } if self.current_prediction else None
-
+        
         return self.knowledge_agent.answer_question(question, context)
 
     def explain_feature(self, feature_name: str) -> str:
-        """
-        Get detailed explanation of a feature
-
-        Args:
-            feature_name: Name of the feature to explain
-
-        Returns:
-            Feature explanation
-        """
+        """Get detailed explanation of a feature"""
         if not self.knowledge_agent:
-            return "Knowledge agent not available. Please provide OpenAI API key."
-
+            return "Knowledge agent not available."
         return self.knowledge_agent.explain_feature_importance(feature_name)
 
     def generate_action_plan(self, timeframe: str = "3months") -> str:
-        """
-        Generate action plan for the current patient
-
-        Args:
-            timeframe: "1month", "3months", or "6months"
-
-        Returns:
-            Action plan
-        """
-        if not self.intervention_agent:
-            return "Intervention agent not available. Please provide OpenAI API key."
-
-        if not self.current_prediction:
-            return "No patient analyzed yet. Run analyze_patient() first."
-
+        """Generate action plan"""
+        if not self.intervention_agent or not self.current_prediction:
+            return "Intervention agent not available or no patient analyzed."
         return self.intervention_agent.generate_action_plan(self.current_prediction, timeframe)
 
-    def compare_scenarios(self, scenario1_data: Dict[str, float],
-                         scenario2_data: Dict[str, float],
-                         label1: str = "Current",
-                         label2: str = "Proposed") -> Dict[str, Any]:
-        """
-        Compare two scenarios (e.g., before/after intervention)
-
-        Args:
-            scenario1_data: First scenario patient data
-            scenario2_data: Second scenario patient data
-            label1: Label for first scenario
-            label2: Label for second scenario
-
-        Returns:
-            Comparison results
-        """
-        print(f"Comparing scenarios: {label1} vs {label2}...")
-
-        # Get predictions for both scenarios
+    def compare_scenarios(self, scenario1_data: Dict[str, float], scenario2_data: Dict[str, float],
+                         label1: str = "Current", label2: str = "Proposed") -> Dict[str, Any]:
+        """Compare two scenarios"""
         pred1 = self.prediction_agent.predict(scenario1_data)
         pred2 = self.prediction_agent.predict(scenario2_data)
-
+        
         risk_change = pred2["risk_score"] - pred1["risk_score"]
-        risk_change_pct = (risk_change / pred1["risk_score"]) * 100
+        risk_change_pct = (risk_change / pred1["risk_score"]) * 100 if pred1["risk_score"] != 0 else 0
 
-        print(f"✓ Risk change: {risk_change:+.1%} ({risk_change_pct:+.1f}%)")
-
-        # Generate comparison explanation
         comparison_explanation = None
         if self.explanation_agent:
-            comparison_explanation = self.explanation_agent.compare_predictions(
-                pred1, pred2, label1, label2
-            )
+            comparison_explanation = self.explanation_agent.compare_predictions(pred1, pred2, label1, label2)
 
         return {
-            "scenario1": {
-                "label": label1,
-                "prediction": pred1
-            },
-            "scenario2": {
-                "label": label2,
-                "prediction": pred2
-            },
             "risk_change": risk_change,
             "risk_change_percent": risk_change_pct,
             "comparison_explanation": comparison_explanation
         }
 
     def get_whatif_suggestions(self) -> str:
-        """
-        Get suggested what-if scenarios to explore
-
-        Returns:
-            Suggested scenarios
-        """
-        if not self.intervention_agent:
-            return "Intervention agent not available. Please provide OpenAI API key."
-
-        if not self.current_prediction:
-            return "No patient analyzed yet. Run analyze_patient() first."
-
+        """Get suggested what-if scenarios"""
+        if not self.intervention_agent or not self.current_prediction:
+            return "Intervention agent not available or no patient analyzed."
         return self.intervention_agent.suggest_what_if_scenarios(self.current_prediction)
 
     def save_analysis(self, filepath: str):
-        """
-        Save current analysis to a file
-
-        Args:
-            filepath: Path to save JSON file
-        """
+        """Save current analysis to a file"""
         if not self.current_prediction:
-            print("No analysis to save. Run analyze_patient() first.")
+            print("No analysis to save.")
             return
-
-        output = {
-            "patient_data": self.current_patient_data,
-            "prediction": self.current_prediction
-        }
-
+        output = {"patient_data": self.current_patient_data, "prediction": self.current_prediction}
         with open(filepath, 'w') as f:
             json.dump(output, f, indent=2)
-
         print(f"Analysis saved to {filepath}")
 
     def load_patient_from_file(self, filepath: str) -> Dict[str, float]:
-        """
-        Load patient data from JSON file
-
-        Args:
-            filepath: Path to JSON file
-
-        Returns:
-            Patient data dictionary
-        """
+        """Load patient data from JSON file"""
         with open(filepath, 'r') as f:
             data = json.load(f)
-
-        # Handle both array format [{}] and single object {}
-        if isinstance(data, list):
-            return data[0]
-        return data
+        return data[0] if isinstance(data, list) else data
 
     def interactive_session(self):
-        """
-        Start an interactive session with the agent system
-        """
-        print("\n" + "="*60)
-        print("CVD Risk Assessment Agent System")
-        print("="*60)
-        print("\nCommands:")
-        print("  analyze <filepath>   - Analyze patient from JSON file")
-        print("  ask <question>       - Ask a question")
-        print("  explain <feature>    - Explain a feature")
-        print("  plan <timeframe>     - Generate action plan (1month/3months/6months)")
-        print("  whatif               - Get what-if scenario suggestions")
-        print("  compare <file1> <file2> - Compare two scenarios")
-        print("  save <filepath>      - Save current analysis")
-        print("  quit                 - Exit")
-        print("="*60 + "\n")
+        """Start an interactive session with the agent system"""
+        print("\n" + "="*60 + "\nCVD Risk Assessment Agent System\n" + "="*60)
+        print("Type 'quit' to exit.")
 
         while True:
             try:
                 command = input("\n> ").strip()
-
-                if command == "quit":
-                    print("Goodbye!")
-                    break
-
-                elif command.startswith("analyze "):
+                if command == "quit": break
+                
+                # Simple routing for CLI
+                if command.startswith("analyze "):
                     filepath = command.split(" ", 1)[1]
-                    patient_data = self.load_patient_from_file(filepath)
-                    result = self.analyze_patient(patient_data)
-
-                    print(f"\nRisk Score: {result['prediction']['risk_score']:.1%}")
-                    print(f"Risk Level: {result['prediction']['risk_level']}")
-
-                    if result['explanation']:
-                        print(f"\nExplanation:\n{result['explanation']}")
-
-                    print(f"\nTop Risk Factors:")
-                    for feature, shap in result['top_risk_factors'].items():
-                        print(f"  - {feature}: {shap:.4f}")
-
+                    data = self.load_patient_from_file(filepath)
+                    res = self.analyze_patient(data)
+                    print(f"Risk: {res['prediction']['risk_score']:.1%}")
                 elif command.startswith("ask "):
-                    question = command.split(" ", 1)[1]
-                    answer = self.ask_question(question)
-                    print(f"\nAnswer:\n{answer}")
-
-                elif command.startswith("explain "):
-                    feature = command.split(" ", 1)[1]
-                    explanation = self.explain_feature(feature)
-                    print(f"\nExplanation:\n{explanation}")
-
-                elif command.startswith("plan "):
-                    timeframe = command.split(" ", 1)[1]
-                    plan = self.generate_action_plan(timeframe)
-                    print(f"\nAction Plan:\n{plan}")
-
-                elif command == "whatif":
-                    suggestions = self.get_whatif_suggestions()
-                    print(f"\nWhat-If Scenarios:\n{suggestions}")
-
-                elif command.startswith("save "):
-                    filepath = command.split(" ", 1)[1]
-                    self.save_analysis(filepath)
-
+                    print(self.route_request(command.split(" ", 1)[1]))
                 else:
-                    print("Unknown command. Type 'quit' to exit.")
-
-            except KeyboardInterrupt:
-                print("\nGoodbye!")
-                break
+                    print(self.route_request(command)) # Send everything else to router
+                    
             except Exception as e:
                 print(f"Error: {e}")
 
-
 if __name__ == "__main__":
     import os
-
-    # Initialize orchestrator
     api_key = os.getenv("OPENAI_API_KEY")
     orchestrator = CVDAgentOrchestrator(openai_api_key=api_key)
-
-    # Start interactive session
-    orchestrator.interactive_session()
+    # orchestrator.interactive_session() # Uncomment to run in CLI mode

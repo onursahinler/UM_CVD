@@ -266,6 +266,8 @@ Format as a numbered list with clear, actionable scenarios."""
         shap_values = prediction_result["shap_values"]
         feature_values = prediction_result["feature_values"]
 
+        non_modifiable = ["anchor_age", "gender_encoded"]
+        
         # Simple rule-based prioritization
         priorities = {
             "high": [],
@@ -275,6 +277,9 @@ Format as a numbered list with clear, actionable scenarios."""
 
         for feature, shap_val in shap_values.items():
             if shap_val <= 0:  # Skip protective factors
+                continue
+            
+            if feature in non_modifiable:
                 continue
 
             feature_info = FEATURE_INFO.get(feature, {})
