@@ -62,49 +62,31 @@ class CVDAgentOrchestrator:
 
     def _analyze_intent(self, message: str) -> str:
         """
-        Private method to determine the user's intent based on keywords.
-        Prioritizes specific clinical questions over generic intervention requests.
+        Determines intent based on explicit tags (Hard Coding) first, 
+        then falls back to keyword analysis.
         """
-        msg = message.lower()
-
-        # PRIORITY 1: Specific Clinical/Treatment Questions -> Knowledge Agent
-        # Even if it says "treatment", words like "discontinue", "eligible", "TFR" imply a specific medical question.
-        clinical_keywords = [
-            'tfr', 'treatment-free', 'discontinue', 'stop', 'quit', 'eligible', 
-            'criteria', 'monitor', 'schedule', 'side effect', 'adverse', 'protocol'
-        ]
-        if any(kw in msg for kw in clinical_keywords):
+        msg = message.lower().strip()
+        
+        if msg.startswith('@knowledge') or msg.startswith('[knowledge]'):
             return 'knowledge'
-
-        # PRIORITY 2: Research/Literature -> Knowledge Agent
-        research_keywords = ['pubmed', 'search', 'find', 'literature', 'article', 'study', 'journal', 'guideline']
-        if any(kw in msg for kw in research_keywords):
-            return 'knowledge'
-
-        # PRIORITY 3: Comparison -> Explanation Agent
-        compare_keywords = ['compare', 'difference', 'versus', 'vs', 'between', 'change', 'better', 'worse', 'impact', 'what-if']
-        if any(kw in msg for kw in compare_keywords):
+        
+        if msg.startswith('@explanation') or msg.startswith('[explanation]'):
             return 'explanation'
-
-        # PRIORITY 4: Explanation -> Explanation Agent
-        explain_keywords = ['explain', 'why', 'how', 'meaning', 'interpret', 'contribution', 'shap']
-        if any(kw in msg for kw in explain_keywords):
-            return 'explanation'
-
-        # PRIORITY 5: General Intervention Plan -> Intervention Agent
-        # Only triggers if explicitly asking for a plan/recommendation
-        plan_keywords = ['recommend', 'suggest', 'plan', 'advice', 'manage', 'strategy', 'action plan']
-        if any(kw in msg for kw in plan_keywords):
+            
+        if msg.startswith('@intervention') or msg.startswith('[intervention]'):
             return 'intervention'
-
-        # Default fallback
-        return 'knowledge'
 
     def route_request(self, user_message: str, context_data: Dict[str, Any] = None) -> str:
         """
         The main entry point for chat interactions.
-        Dynamically configures agents based on frontend settings.
+        Handles message cleaning and dynamic routing.
         """
+        # --- ADIM 0: MESAJ TEMİZLİĞİ ---
+        # Etiketleri ajanlara göndermeden önce temizliyoruz
+        clean_message = user_message.replace('@knowledge', '').replace('[knowledge]', '') \
+                                    .replace('@explanation', '').replace('[explanation]', '') \
+                                    .replace('@intervention', '').replace('[intervention]', '').strip()
+
         # 1. Context ve Ayarları Yükle
         if context_data:
             self.current_patient_data = context_data.get('patient_data', self.current_patient_data)
@@ -113,41 +95,38 @@ class CVDAgentOrchestrator:
             if 'updated_scenarios' in context_data:
                 self.updated_scenarios = context_data['updated_scenarios']
             
-            # --- KRİTİK DEĞİŞİKLİK: BUTON AYARLARINI UYGULA ---
-            # App.py'dan gelen buton bilgisini alıyoruz
-            # Eğer context'te yoksa varsayılan False/True kullanmıyoruz, ne geldiyse o.
+            # --- BUTON AYARLARI ---
             frontend_pubmed_setting = context_data.get('use_pubmed')
             frontend_guideline_setting = context_data.get('use_guidelines')
 
-            # Şimdi bu ayarları Knowledge Agent'a zorla uyguluyoruz
             if self.knowledge_agent:
-                # Eğer frontend_pubmed_setting None değilse (yani frontend bir şey gönderdiyse) uygula
                 if frontend_pubmed_setting is not None:
                     self.knowledge_agent.use_pubmed = frontend_pubmed_setting
-                
                 if frontend_guideline_setting is not None:
                     self.knowledge_agent.use_rag = frontend_guideline_setting
 
-            # Diğer agentların RAG ayarlarını da güncelle
             if self.explanation_agent and frontend_guideline_setting is not None:
                 self.explanation_agent.use_rag = frontend_guideline_setting
             
             if self.intervention_agent and frontend_guideline_setting is not None:
                 self.intervention_agent.use_rag = frontend_guideline_setting
             
-            print(f"DEBUG: Agent Settings Updated -> PubMed: {self.knowledge_agent.use_pubmed}, Guidelines: {frontend_guideline_setting}")
+            # --- GÜVENLİ PRINT (HATA DÜZELTİLDİ) ---
+            # self.knowledge_agent None ise hata vermesin diye kontrol ekledik
+            safe_pubmed_status = self.knowledge_agent.use_pubmed if self.knowledge_agent else "N/A"
+            print(f"DEBUG: Agent Settings -> PubMed: {safe_pubmed_status}, Guidelines: {frontend_guideline_setting}")
 
 
-        # 2. Niyet Analizi (Intent Analysis)
+        # 2. Niyet Analizi (Orijinal, etiketli mesaja bakıyoruz)
         intent = self._analyze_intent(user_message)
         print(f"DEBUG: Detected Intent: {intent}")
 
-        # 3. Yönlendirme (Routing)
+        # 3. Yönlendirme (Routing) - AJANLARA CLEAN_MESSAGE GİDİYOR
         response_text = "I'm not sure how to handle that request."
 
         # --- ROUTE: EXPLANATION ---
         if intent == 'explanation' and self.explanation_agent:
-            is_comparison = any(k in user_message.lower() for k in ['compare', 'difference', 'what-if', 'vs'])
+            is_comparison = any(k in clean_message.lower() for k in ['compare', 'difference', 'what-if', 'vs'])
             
             if is_comparison and self.updated_scenarios:
                 latest_scenario = self.updated_scenarios[-1]
@@ -156,9 +135,11 @@ class CVDAgentOrchestrator:
                     latest_scenario,
                     label1="Original Analysis",
                     label2="New Scenario",
-                    user_question=user_message
+                    user_question=clean_message  # <-- Temiz mesaj
                 )
             else:
+                # Explain metodunun text input alması gerekebilir veya sadece prediction üzerinden çalışır
+                # Eğer explain_prediction metodu sadece veriyle çalışıyorsa sorun yok.
                 response_text = self.explanation_agent.explain_prediction(
                     self.current_prediction,
                     detail_level="moderate"
@@ -166,22 +147,25 @@ class CVDAgentOrchestrator:
 
         # --- ROUTE: INTERVENTION ---
         elif intent == 'intervention' and self.intervention_agent:
-            msg_lower = user_message.lower()
-            is_specific_question = "?" in user_message or any(q in msg_lower for q in ["how", "is he", "can he", "what is", "when"])
+            # Eğer kullanıcı manuel olarak @intervention yazdıysa direkt plana git.
+            # Yazmadıysa (otomatik geldiyse) soru kontrolü yap.
+            forced_intervention = '@intervention' in user_message.lower() or '[intervention]' in user_message.lower()
             
-            if is_specific_question and self.knowledge_agent:
-                print("DEBUG: Intervention intent detected but routed to Knowledge Agent due to question format.")
+            msg_lower = clean_message.lower()
+            is_question = "?" in clean_message or any(q in msg_lower for q in ["how", "what", "can"])
+            
+            # Eğer zorlama yoksa VE soru soruyorsa -> Knowledge'a at (Güvenlik önlemi)
+            if not forced_intervention and is_question and self.knowledge_agent:
+                print("DEBUG: Intervention query rerouted to Knowledge Agent.")
                 context_for_rag = {"patient_data": self.current_patient_data, "prediction": self.current_prediction}
-                response_text = self.knowledge_agent.answer_question(user_message, context=context_for_rag)
+                response_text = self.knowledge_agent.answer_question(clean_message, context=context_for_rag)
             else:
                 response_text = self.intervention_agent.suggest_interventions(self.current_prediction)
 
         # --- ROUTE: KNOWLEDGE (Default) ---
         elif self.knowledge_agent:
             context_for_rag = {"patient_data": self.current_patient_data, "prediction": self.current_prediction}
-            # Knowledge agent'a sorarken zaten yukarıda ayarları (use_pubmed) güncellediğimiz için
-            # burada tekrar parametre geçmeye gerek yok, kendi içindeki ayarı kullanacak.
-            response_text = self.knowledge_agent.answer_question(user_message, context=context_for_rag)
+            response_text = self.knowledge_agent.answer_question(clean_message, context=context_for_rag) # <-- Temiz mesaj
         
         else:
             response_text = "The AI agents are not fully initialized. Please check your API key."
